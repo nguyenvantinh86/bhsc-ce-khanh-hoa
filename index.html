@@ -8374,7 +8374,7 @@ function khTQ(S) {
     const st = k && k.actual != null ? (k.status === 'good' ? 2 : 1) : 0;
     hm.push([xi, yi, st, k && k.actual != null ? k.fmt(k.actual) : '', k && k.target != null ? k.fmt(k.target) : '']); }));
   const clCard = chartCard({ title: 'Chất lượng 5 tiêu chí theo tháng', icon: 'shield',
-    sub: `Xanh = ĐẠT · đỏ = KHÔNG ĐẠT · xám = chưa có số · ${scopeLbl(S)}`,
+    sub: `Xanh = ĐẠT · đỏ = KHÔNG ĐẠT · xám = CHƯA ĐO · ${scopeLbl(S)}`,
     svg: ecBox(() => { const xx = q => hep ? q.value[1] : q.value[0], yy = q => hep ? q.value[0] : q.value[1];
       const axM = { type: 'category', data: Dt.lab, axisTick: { show: false }, axisLine: { show: false }, inverse: hep,
         axisLabel: { color: CH.muted, fontSize: 11, formatter: (v, i) => Dt.selF[i] ? `{b|${v}}` : v, rich: { b: { fontWeight: 800, color: CH.ink } } } };
@@ -8384,15 +8384,16 @@ function khTQ(S) {
           : { color: CH.ink2, fontSize: 11, fontWeight: 700 } };
       return ecBase({ toolbox: { show: false }, grid: { left: 6, right: 8, top: hep ? 66 : 34, bottom: 4, containLabel: true },
       tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
-        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${Dt.lab[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || '—')}</b><br>Target: <b>${esc(q.value[4] || '—')}</b>` },
+        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${Dt.lab[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || 'Chưa đo')}</b><br>Target: <b>${esc(q.value[4] || '—')}</b>` },
       xAxis: hep ? axT : axM, yAxis: hep ? axM : axT,
       visualMap: { type: 'piecewise', dimension: 2, orient: 'horizontal', top: 0, left: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, color: CH.ink2 },
-        pieces: [{ value: 2, label: 'Đạt', color: CH.st.good }, { value: 1, label: 'Không đạt', color: CH.st.bad }, { value: 0, label: 'Chưa có số', color: '#E2E8F0' }] },
-      series: [{ type: 'heatmap', name: 'Chất lượng', data: hep ? hm.map(d => [d[1], d[0], d[2], d[3], d[4]]) : hm, itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 5 },
-        label: { show: true, formatter: q => q.value[3] || '', color: '#fff', fontWeight: 700, fontSize: hep ? 9.5 : 10.5 } }]
+        pieces: [{ value: 2, label: 'Đạt', color: CH.st.good }, { value: 1, label: 'Không đạt', color: CH.st.bad }, { value: 0, label: 'Chưa đo', color: '#E2E8F0' }] },
+      series: [{ type: 'heatmap', name: 'Chất lượng', data: (hep ? hm.map(d => [d[1], d[0], d[2], d[3], d[4]]) : hm)
+          .map(d => d[2] === 0 ? { value: d, label: { color: '#6B7C8A', fontWeight: 600 } } : d), itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 5 },
+        label: { show: true, formatter: q => q.value[3] || (q.value[2] === 0 ? 'Chưa đo' : ''), color: '#fff', fontWeight: 700, fontSize: hep ? 9.5 : 10.5 } }]
     }); }, hep ? 80 + Dt.lab.length * 30 : 44 + tc.length * 40, '', 'Chất lượng 5 tiêu chí theo tháng'),
     table: chTable(['Tiêu chí', ...Dt.lab], tc.map((c, yi) => [esc(c.name), ...Dt.lab.map((l, xi) => { const h = hm.find(z => z[0] === xi && z[1] === yi);
-      return h && h[3] ? `${esc(h[3])} <span class="badge ${h[2] === 2 ? 'good' : 'bad'}" style="font-size:9px">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>` : '–'; })])) });
+      return h && h[3] ? `${esc(h[3])} <span class="badge ${h[2] === 2 ? 'good' : 'bad'}" style="font-size:9px">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>` : '<span style="color:var(--muted)">Chưa đo</span>'; })])) });
   /* 2) Vượt Trội: top 10 điểm lũy kế */
   let vtCard = '';
   if (typeof VT !== 'undefined' && VT && VT.nguoi && VT.nguoi.length) {
