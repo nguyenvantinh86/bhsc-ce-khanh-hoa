@@ -7945,7 +7945,7 @@ async function khTuMo() {                       /* máy đã ghi nhớ -> tự m
 }
 function khKhoaLai() {
   KH_TN = null; KH_DK = null; khLS.del(KH_KEYLS); khLockUI(); render();
-  toast('Đã khóa lại thu nhập trên máy này');
+  toast('Đã khóa lại — web về chế độ chỉ xem trên máy này');
 }
 /* giá trị thu nhập: dữ liệu chưa khóa (file cũ) thì dùng thẳng, có khóa thì lấy từ bản đã giải mã */
 function khTNv(p, m) {
@@ -7967,10 +7967,10 @@ function khTNcell(p, m) {
 function khMoKhoa() {
   if (!khKhoa()) { toast('Dữ liệu này không có thu nhập bị khóa'); return; }
   if (KH_TN) { khKhoaLai(); return; }
-  openModal('MỞ KHÓA XEM THU NHẬP', 'khlock', `<form class="khunlock" id="khUF" autocomplete="on">
+  openModal('MỞ KHÓA — XEM THU NHẬP & CHỈNH SỬA', 'khlock', `<form class="khunlock" id="khUF" autocomplete="on">
       <div class="khu-ico">${ic('khlock', 30)}</div>
-      <p>Thu nhập nhân viên đã được <b>mã hóa</b>. Chỉ tài khoản được cấp quyền nhập đúng
-        <b>Gmail</b> và <b>mã mở khóa</b> mới xem được.</p>
+      <p>Web đang ở chế độ <b>CHỈ XEM</b> và thu nhập nhân viên đã được <b>mã hóa</b>. Chỉ tài khoản được cấp quyền
+        nhập đúng <b>Gmail</b> và <b>mã mở khóa</b> mới xem được thu nhập và <b>chỉnh sửa</b> (sửa nhãn, sửa số, cấu hình, nhập dữ liệu).</p>
       <label>Gmail được cấp quyền<input type="email" id="khUE" autocomplete="username" placeholder="…@gmail.com" required></label>
       <label>Mã mở khóa<input type="password" id="khUC" autocomplete="current-password" placeholder="KH-XXXX-XXXX" required></label>
       <label class="khu-chk"><input type="checkbox" id="khUR" checked> Ghi nhớ trên máy này (lần sau tự mở)</label>
@@ -7987,7 +7987,7 @@ async function khThuMo() {
   try {
     const dk = await khMoBangMa(g, c);
     await khApDung(dk, document.getElementById('khUR').checked);
-    closeModal(); toast('Đã mở khóa — đang hiện thu nhập'); render();
+    closeModal(); toast('Đã mở khóa — xem được thu nhập và chỉnh sửa'); render();
   } catch (e) {
     err.textContent = 'Gmail hoặc mã mở khóa không đúng.';
     go.disabled = false; go.innerHTML = `${ic('khunlock', 13)} Mở khóa`;
@@ -7997,12 +7997,50 @@ function khLockUI() {
   const on = !!KH_TN, has = !!khKhoa();
   const b = document.getElementById('bKhLock');
   if (b) { b.hidden = !has; b.classList.toggle('on', on);
-    b.innerHTML = `${ic(on ? 'khunlock' : 'khlock', 13)}<span>${on ? 'Đang xem thu nhập' : 'Thu nhập: đã khóa'}</span>`;
-    b.title = on ? 'Bấm để khóa lại thu nhập trên máy này' : 'Bấm để mở khóa bằng Gmail + mã'; }
+    b.innerHTML = `${ic(on ? 'khunlock' : 'khlock', 13)}<span>${on ? 'Đã mở khóa · sửa được' : 'Chỉ xem · Mở khóa'}</span>`;
+    b.title = on ? 'Đang có quyền: xem thu nhập + chỉnh sửa. Bấm để khóa lại trên máy này'
+      : 'Web đang ở chế độ CHỈ XEM. Bấm để mở khóa bằng Gmail được cấp quyền + mã (xem thu nhập và chỉnh sửa)'; }
   const f = document.getElementById('khNavF');
   if (f) f.innerHTML = has ? `<button class="khn-lock ${on ? 'on' : ''}" data-khunlock>${ic(on ? 'khunlock' : 'khlock', 14)}
-      <span><b>${on ? 'Đang xem thu nhập' : 'Thu nhập đang khóa'}</b><small>${on ? 'Bấm để khóa lại' : 'Mở bằng Gmail + mã'}</small></span></button>` : '';
+      <span><b>${on ? 'Đã mở khóa' : 'Chế độ chỉ xem'}</b><small>${on ? 'Xem thu nhập · chỉnh sửa · bấm để khóa lại' : 'Mở khóa bằng Gmail + mã'}</small></span></button>` : '';
+  khQuyenUI();
 }
+/* =============================================================================
+   2b) CHẾ ĐỘ CHỈ XEM — anh Thu chốt 18/11: link web ai cũng XEM được, nhưng chỉ
+   Gmail 86vantinh86@gmail.com (mở khóa bằng Gmail + mã) mới CHỈNH SỬA được:
+   sửa nhãn, sửa tay số, xoá sửa tay, cấu hình, nhập Excel / JSON, lưu JSON,
+   kế hoạch hành động, ghi chú slide. Xuất Excel/PDF/PowerPoint vẫn mở cho mọi người.
+   (Web là trang tĩnh: chỉnh sửa trên trình duyệt chỉ lưu ở máy người đó; bản trên
+   mạng chỉ đổi khi tài khoản GitHub nguyenvantinh86 đẩy file mới.)
+   ============================================================================= */
+const khAdmin = () => !!KH_DK;
+const KH_ED_BTN = ['bLbl', 'bEdReset', 'bCfg', 'bXls', 'bDbLoad', 'bDbSave', 'saveInd'];
+const KH_ED_SEL = '[data-edcell],[data-edundo],[data-actdel],#actAdd,' + KH_ED_BTN.map(i => '#' + i).join(',');
+function khQuyenUI() {
+  const ad = khAdmin();
+  document.body.classList.toggle('kh-admin', ad);
+  document.body.classList.toggle('kh-xem', !ad);
+  if (ad) return;
+  try { if (typeof LBLMODE !== 'undefined' && LBLMODE && typeof setLabelMode === 'function') setLabelMode(false); } catch (_) { }
+  document.querySelectorAll('[contenteditable="true"]').forEach(e => e.setAttribute('contenteditable', 'false'));
+  document.querySelectorAll('input[data-act],select[data-act],textarea[data-act]').forEach(e => { e.disabled = true; });
+}
+let KH_XEMT = 0;
+['click', 'dblclick', 'keydown'].forEach(ev => document.addEventListener(ev, e => {
+  if (khAdmin()) return;
+  const t = e.target; if (!t || !t.closest) return;
+  const hit = t.closest(KH_ED_SEL) || (ev === 'dblclick' && t.closest('[data-lbl]'));
+  if (!hit) return;
+  if (ev === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (ev !== 'keydown' && Date.now() - KH_XEMT > 2500) { KH_XEMT = Date.now();
+    toast('Chế độ CHỈ XEM — chỉ Gmail được cấp quyền (bấm “Mở khóa”) mới chỉnh sửa được'); }
+}, true));
+/* bỏ câu “ô này sửa tay được” trong khung giải thích khi đang ở chế độ chỉ xem */
+if (typeof kpiTip === 'function') { const _kt = kpiTip;
+  kpiTip = function () { const s = _kt.apply(this, arguments);
+    return khAdmin() ? s : String(s).replace('Ô này <b>sửa tay được</b>: bấm vào số để gõ đè, Enter để lưu.<br>', ''); }; }
+
 /* tải file Excel Vượt Trội: có quyền -> bản ĐẦY ĐỦ (giải mã), chưa có -> bản che thu nhập */
 async function khTaiVT(loai, nutId, tenDu, tenChe) {
   const L = khKhoa(), f = L && L.f && L.f[loai];
@@ -8578,6 +8616,7 @@ window.addEventListener('scroll', () => { if (KH_SPYT) return; KH_SPYT = request
    GẮN VÀO VÒNG RENDER + SỰ KIỆN
    ============================================================================= */
 function khAfterRender() {
+  khQuyenUI();
   ecMount();
   if (ST.tab === 0) khTQSpark();
   if (ST.tab === KH_M11()) khListFilter();
@@ -8761,7 +8800,7 @@ body.khnav-mo .khn-bd{display:block}
 body{background:linear-gradient(180deg,#E3F2FB 0,#EDF6FB 420px,#F3F8FB 100%) fixed}
 ::selection{background:#BFE6F8;color:#0F3049}
 /* thanh đầu trang: trắng, chữ đậm */
-.appbar{background:rgba(255,255,255,.96);color:var(--ink);border-bottom:1px solid #DCEAF3;box-shadow:0 4px 18px rgba(30,85,128,.06);backdrop-filter:blur(6px)}
+.appbar{background:#fff;color:var(--ink);border-bottom:1px solid #DCEAF3;box-shadow:0 4px 18px rgba(30,85,128,.06);backdrop-filter:blur(6px)}
 .brand-div{background:#DCEAF3}
 .htxt h1{color:#0F3049}.htxt h1 em{color:var(--sky)}
 .htxt p{color:var(--muted)}
@@ -8773,7 +8812,7 @@ body{background:linear-gradient(180deg,#E3F2FB 0,#EDF6FB 420px,#F3F8FB 100%) fix
 .hbtn.acc:hover{background:linear-gradient(135deg,#46B8EA,#2288C6)}
 .hbtn.khlockbtn{border-color:#F2C49A;background:#FFF6EE;color:#8A4B12}.hbtn.khlockbtn svg{color:#E8862F}
 .hbtn.khlockbtn.on{border-color:#9ED9B5;background:#EDFAF2;color:#13703F}.hbtn.khlockbtn.on svg{color:#1E9E57}
-.filterbar{background:rgba(255,255,255,.92);border-bottom-color:#E1EDF4}
+.filterbar{background:#fff;border-bottom-color:#E1EDF4}
 .storechips b.cur{background:var(--sky);color:#fff}
 .storechips b.has{background:#E3F3FB;color:#1E6E9E}
 .tabbar{background:#fff;border-bottom-color:#E1EDF4}
@@ -8850,6 +8889,9 @@ body{background:linear-gradient(180deg,#E3F2FB 0,#EDF6FB 420px,#F3F8FB 100%) fix
 .khli.win .khav{background:var(--sky);color:#fff}
 .khl-seg button.on{background:var(--sky);border-color:var(--sky);color:#fff}
 .khlockbox svg{color:var(--sky)}
+body.kh-xem #bLbl,body.kh-xem #bEdReset,body.kh-xem #bCfg,body.kh-xem #bXls,body.kh-xem #bDbLoad,body.kh-xem #bDbSave,body.kh-xem #saveInd,body.kh-xem .edundo,body.kh-xem [data-actdel],body.kh-xem #actAdd{display:none!important}
+body.kh-xem .edc{cursor:default}body.kh-xem .edc:hover{background:transparent;border-bottom-color:transparent}
+body.kh-xem [data-act]:disabled{opacity:1;color:inherit;background:transparent;border-color:transparent;appearance:none;-webkit-appearance:none}
 .vtbar{background:linear-gradient(115deg,#1E5580,#2E9FD6)!important;box-shadow:0 10px 24px rgba(30,85,128,.18)}
 .vtbar-r .btn{background:#fff;color:#1E5580}
 .vtbar-r .btn.ghost{background:rgba(255,255,255,.16);color:#fff}
