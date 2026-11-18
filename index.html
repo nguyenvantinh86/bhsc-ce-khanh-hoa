@@ -4899,7 +4899,7 @@ function renderM4(){
           <td>${rateCell(bn)}</td><td>${badge(bn)}</td></tr>
       </tbody></table></div></div></div>`;
   const cT=trendCard("doanhThu",S,{title:LB("chart.trend.m4","Xu hướng doanh thu theo tháng"),icon:"trendup"});
-  return gopBar(S) + banner + vtToggle()
+  return gopBar(S) + banner + (typeof khVtQ4Card==="function"?khVtQ4Card(S):"") + vtToggle()
     + `<div class="chartgrid" style="grid-template-columns:1fr 1.3fr">${chVung}${chTinh}</div>`
     + cT + chartDoanhThuNhom(S) + secIn + secOut + secOutMoi + evalBox("doanhThu",S);
 }
@@ -8580,7 +8580,10 @@ function khNavRender() {
 function khStickOff() {
   const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stick-3')) || 145;
   const tb = document.querySelector('.tabbar'); const r = tb ? tb.getBoundingClientRect() : null;
-  return Math.max(v, r && getComputedStyle(tb).position === 'sticky' ? r.bottom : 0) + 12;
+  /* băng tiêu đề của tab (banner) cũng dính trên đầu khi cuộn -> nhảy mục lục phải chừa cả chiều cao của nó */
+  const bn = document.querySelector('.module:not([hidden]) .banner');
+  const bh = bn && getComputedStyle(bn).position === 'sticky' ? bn.offsetHeight : 0;
+  return Math.max(v, r && getComputedStyle(tb).position === 'sticky' ? r.bottom : 0) + bh + 12;
 }
 function khNavGo(tab, k) {
   if (window.matchMedia('(max-width:1180px)').matches) document.body.classList.remove('khnav-mo');
@@ -8647,6 +8650,85 @@ document.addEventListener('click', e => {
 document.addEventListener('submit', e => { if (e.target && e.target.id === 'khUF') { e.preventDefault(); khThuMo(); } });
 document.addEventListener('input', e => { if (e.target && e.target.id === 'khLQ') { KH_LQ = e.target.value; khListFilter(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target && (e.target.id === 'khUE' || e.target.id === 'khUC')) { e.preventDefault(); khThuMo(); } });
+
+/* ---------- KPI VƯỢT TRỘI DOANH THU · 3 THÁNG CUỐI NĂM 2026 (đầu tab DOANH THU) ----------
+   Anh Thu yêu cầu 18/11/2026. Nguồn: file "Ngày 07.11.2026 TARGET Q4 DV BHSC CE", sheet DATA,
+   Tỉnh (cột F) = Khánh Hòa, Mã kho (cột G) = VDH_KHH – Kho CN BHSC CE Diên Khánh (KGP) (web chỉ BH tại nhà).
+   Target Base = DB.ky[k].tinh.VDH_KHH.dt.*.target · Target Vượt Trội = DB.targetDT[k].VDH_KHH.vt.*
+   (đã đối chiếu khớp file từng đồng). Thực đạt, quy đổi lũy kế, % = đúng cách tính tab DOANH THU / TARGET VƯỢT TRỘI. */
+const KH_Q4_NAM = 2026, KH_Q4_TH = [10, 11, 12];
+const KH_Q4_NHOM = [['Bảo hành tại nhà', 'Bảo hành tại nhà', 'home'], ['BH 1 đổi 1', '1 Đổi 1', 'refresh'],
+  ['BHMR', 'Bảo hành mở rộng', 'shield'], ['SCDV', 'Sửa chữa khách lẻ', 'wrench']];
+let KH_Q4_SEL = null;
+function khQ4Mac(S) { return (S && S.nam === KH_Q4_NAM && S.ky === 'Tháng' && KH_Q4_TH.indexOf(S.thang) >= 0) ? S.thang : 'Q4'; }
+function khQ4Kpi(cat, m) {
+  if (!DB.ky[kyKey(KH_Q4_NAM, m)]) return { b: null, v: null };
+  const S2 = Object.assign({}, ST, { nam: KH_Q4_NAM, ky: 'Tháng', thang: m, months: [m] });
+  return { b: calcDtUnitCat('VDH_KHH', 'nha', cat, S2), v: calcVtdUnitCat('VDH_KHH', 'nha', cat, S2) };
+}
+/* cộng 3 tháng: target = cả 3 tháng; thực đạt = các tháng đã có số -> % là TIẾN ĐỘ quý */
+function khQ4Gop(list, name, icon) {
+  const t = list.filter(k => k && k.target != null), a = list.filter(k => k && k.actual != null);
+  return mkKpi({ key: 'q4', name, icon, fmt: tr, unit: 'tr đ', target: t.length ? t.reduce((s, k) => s + k.target, 0) : null,
+    actual: a.length ? a.reduce((s, k) => s + k.actual, 0) : null, meta: { congDon: true } });
+}
+function khQ4Data(sel) {
+  const ms = sel === 'Q4' ? KH_Q4_TH : [sel];
+  const rows = KH_Q4_NHOM.map(([cat, ten, icon]) => {
+    const per = ms.map(m => khQ4Kpi(cat, m));
+    const one = ms.length === 1;
+    return { cat, ten, icon, b: one ? per[0].b : khQ4Gop(per.map(p => p.b), ten, icon), v: one ? per[0].v : khQ4Gop(per.map(p => p.v), ten, icon) };
+  });
+  return { ms, rows, tb: sumKpi(rows.map(r => r.b), 'TỔNG 4 NHÓM', 'trendup'), tv: sumKpi(rows.map(r => r.v), 'TỔNG 4 NHÓM', 'trendup') };
+}
+function khQ4Nhan(m, nam) {
+  const D = DB.ky[kyKey(KH_Q4_NAM, m)], t = `T${m}` + (nam ? '/' + KH_Q4_NAM : '');
+  return D && isLuyKe(D) ? `${t} · lũy kế ${D.ngayDaQua}/${D.ngayTrongThang} ngày` : t;
+}
+function khVtQ4Card(S) {
+  if (!KH_Q4_TH.some(m => DB.ky[kyKey(KH_Q4_NAM, m)])) return '';
+  const sel = KH_Q4_SEL == null ? khQ4Mac(S) : KH_Q4_SEL, gop = sel === 'Q4';
+  let d; try { d = khQ4Data(sel); } catch (e) { console.warn('[khVtQ4]', e); return ''; }
+  const so = (k, w) => k && k[w] != null ? `<span class="num">${tr(k[w])}</span>` : `<span class="dash">–</span>`;
+  const thuc = k => k && k.actual != null ? `<span class="num">${tr(k.actual)}</span>${gop ? '' : dkChip(k)}`
+    : `<span class="badge none" style="font-size:9px">chưa có số</span>`;
+  const pct = (k, c) => {
+    if (!k || k.rate == null) return `<td class="q4p${c || ''}"><span class="dash">–</span></td>`;
+    const st = gop ? 'run' : (k.status === 'good' ? 'good' : 'bad'), w = Math.max(2, Math.min(100, k.rate * 100));
+    const nho = !gop && k.coTienDo ? `<i>đến hiện tại ${pc1(k.rateNow)}</i>` : '';
+    return `<td class="q4p${c || ''}"><span class="q4r ${st}" ${tipAttr(kpiTip(k))} tabindex="0">${pc1(k.rate)}</span>${nho}<span class="q4m"><b class="${st}" style="width:${w}%"></b></span></td>`;
+  };
+  const dong = (ten, icon, b, v, tot) => `<tr${tot ? ' class="tot"' : ''}><td class="l">${icon ? `<span class="q4i">${ic(icon, 13)}</span>` : ''}<b>${esc(ten)}</b></td>
+    <td class="sep">${so(b, 'target')}</td><td>${thuc(b)}</td>${pct(b)}
+    <td class="sep vtcol">${so(v, 'target')}</td><td class="vtcol">${thuc(v)}</td>${pct(v, ' vtcol')}</tr>`;
+  const thieu = d.tv.target != null ? Math.max(0, d.tv.target - (d.tv.actual || 0)) : null;
+  const tile = (nhan, giaTri, phu, cls) => `<div class="q4t ${cls || ''}"><span>${nhan}</span><b>${giaTri}</b><small>${phu}</small></div>`;
+  const ky = gop ? '3 tháng T10–T12/2026' : khQ4Nhan(sel, true);
+  const seg = [10, 11, 12, 'Q4'].map(x => `<button type="button" data-khq4="${x}" class="${x === sel ? 'on' : ''}"${DB.ky[kyKey(KH_Q4_NAM, x)] || x === 'Q4' ? '' : ' disabled'}>${x === 'Q4' ? '3 tháng (T10–T12)' : khQ4Nhan(x)}</button>`).join('');
+  const body = `<div class="khq4seg" role="group" aria-label="Chọn kỳ">${seg}</div>
+    <div class="q4tiles">
+      ${tile('Thực đạt 4 nhóm', d.tb.actual == null ? '–' : tr(d.tb.actual), esc(ky))}
+      ${tile('% đạt Target Base', d.tb.rate == null ? '–' : pc1(d.tb.rate), 'Target base ' + (d.tb.target == null ? '–' : tr(d.tb.target)), gop ? 'run' : d.tb.status === 'good' ? 'good' : 'bad')}
+      ${tile('% đạt Target Vượt Trội', d.tv.rate == null ? '–' : pc1(d.tv.rate), 'Target vượt trội ' + (d.tv.target == null ? '–' : tr(d.tv.target)), gop ? 'run' : d.tv.status === 'good' ? 'good' : 'bad')}
+      ${tile('Cần thêm để đạt Vượt Trội', thieu == null ? '–' : thieu > 0 ? tr(thieu) : 'Đã đạt', gop ? 'đến hết T12/2026' : 'đến hết tháng ' + sel)}
+    </div>
+    <div class="tblwrap"><table class="dt khq4t">
+      <thead><tr><th class="l" rowspan="2" style="vertical-align:bottom">NHÓM DOANH THU</th>
+        <th class="g" colspan="3">${ic('target', 12)} TARGET BASE</th><th class="g vtcol" colspan="3">${ic('medal', 12)} TARGET VƯỢT TRỘI</th></tr>
+        <tr><th class="sep">TARGET BASE</th><th>THỰC ĐẠT</th><th>% ĐẠT</th><th class="sep vtcol">TARGET VƯỢT TRỘI</th><th class="vtcol">THỰC ĐẠT</th><th class="vtcol">% ĐẠT</th></tr></thead>
+      <tbody>${d.rows.map(r => dong(r.ten, r.icon, r.b, r.v)).join('')}${dong('TỔNG 4 NHÓM', 'trendup', d.tb, d.tv, true)}</tbody></table></div>
+    <div class="cap"><b>Nguồn target:</b> file “TARGET Q4 DV BHSC CE” ngày 07/11/2026, sheet DATA, tỉnh Khánh Hòa, kho VDH_KHH Diên Khánh (KGP).
+      Bảo hành tại nhà: file để Target Vượt Trội bằng Target Base. Không gồm bảo hành tại kho vì web chỉ theo dõi bảo hành tại nhà.<br>
+      ${gop ? '<b>3 tháng:</b> cộng target cả T10–T12; thực đạt cộng các tháng đã có số (T12 chưa có) → % là <b>tiến độ</b> so với target cả 3 tháng.'
+        : '<b>Tháng đang chạy:</b> % lớn = dự kiến cả tháng so với target (dùng chấm đạt/không đạt), số nhỏ = thực đạt đến hiện tại so với target cả tháng — cùng cách tính tab DOANH THU.'}</div>`;
+  return `<div id="khQ4">${khCard('KPI VƯỢT TRỘI DOANH THU — 3 THÁNG CUỐI NĂM 2026', `Khánh Hòa – Ninh Thuận · bảo hành tại nhà · ${esc(ky)}`, 'medal', body,
+    infoI('Mỗi nhóm có 2 mức chỉ tiêu: <b>Target Base</b> (target công ty) và <b>Target Vượt Trội</b> (chỉ tiêu phấn đấu). Cùng một số thực đạt, so với từng mức.'))}</div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-khq4]'); if (!b || b.disabled) return;
+  e.preventDefault(); KH_Q4_SEL = b.dataset.khq4 === 'Q4' ? 'Q4' : +b.dataset.khq4;
+  const el = document.getElementById('khQ4'); if (el) el.outerHTML = khVtQ4Card(ST);
+});
 
 /* ---------- giao diện ---------- */
 (function () {
@@ -8900,6 +8982,27 @@ table.vttbl th.lk,.vttot td.lk{background:#E8862F!important;color:#fff}
 .vttot td{background:#1E5580!important}
 .vtten,.vtk b,.vtdet .vtwho b,.vtgt,table.vttbl td.rk{color:#0F3049}
 table.dt tr.tot td,table.mini tr.sum td{background:#EAF6FC;color:#0F3049;border-top-color:#2E9FD6}
+/* KPI vượt trội doanh thu 3 tháng cuối năm (tab DOANH THU) */
+#khQ4 .khq4seg{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+#khQ4 .khq4seg button{border:1px solid #CFE3EF;background:#fff;color:#1E5580;font:inherit;font-size:12px;font-weight:700;padding:6px 13px;border-radius:99px;cursor:pointer}
+#khQ4 .khq4seg button:hover{background:#EEF7FC}
+#khQ4 .khq4seg button.on{background:#2E9FD6;border-color:#2E9FD6;color:#fff}
+#khQ4 .khq4seg button:disabled{opacity:.45;cursor:default}
+#khQ4 .q4tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+#khQ4 .q4t{border:1px solid #E3EEF5;border-radius:14px;padding:10px 12px;background:#F7FBFE;display:flex;flex-direction:column;gap:2px;min-width:0}
+#khQ4 .q4t span{font-size:10.5px;font-weight:800;color:#5B6B78;text-transform:uppercase;letter-spacing:.3px}
+#khQ4 .q4t b{font-size:21px;font-weight:800;color:#0F3049;line-height:1.25}
+#khQ4 .q4t small{font-size:11px;color:#6B7C8A}
+#khQ4 .q4t.good b{color:#1A7F4B}#khQ4 .q4t.bad b{color:#C0392B}#khQ4 .q4t.run b{color:#1E7DB8}
+#khQ4 .q4i{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#E6F4FB;color:#1E7DB8;margin-right:7px;vertical-align:middle}
+table.khq4t td.q4p{min-width:92px}
+table.khq4t .q4r{font-weight:800;font-variant-numeric:tabular-nums}
+table.khq4t .q4r.good{color:#1A7F4B}table.khq4t .q4r.bad{color:#C0392B}table.khq4t .q4r.run{color:#1E7DB8}
+table.khq4t td.q4p i{display:block;font-style:normal;font-size:9.5px;font-weight:700;color:var(--muted)}
+table.khq4t .q4m{display:block;height:4px;border-radius:4px;background:#E8EEF3;margin-top:4px;overflow:hidden}
+table.khq4t .q4m b{display:block;height:100%;border-radius:4px}
+table.khq4t .q4m b.good{background:#22A06B}table.khq4t .q4m b.bad{background:#E05A47}table.khq4t .q4m b.run{background:#2E9FD6}
+@media (max-width:760px){#khQ4 .q4tiles{grid-template-columns:repeat(2,minmax(0,1fr))}#khQ4 .q4t b{font-size:18px}}
 `;
   const st = document.createElement('style'); st.id = 'khProCss'; st.textContent = css; document.head.appendChild(st);
   const sc = document.createElement('script'); sc.src = 'echarts.min.js'; sc.async = true;
