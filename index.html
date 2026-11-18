@@ -1570,7 +1570,7 @@ const MODULES = [
   {id:"m2", ten:"SẢN LƯỢNG & ĐƠN GIÁ TB",  icon:"pkg",            lk:"tab.m2"},
   {id:"m3", ten:"CHI PHÍ",                 icon:"calculator",     lk:"tab.m3"},
   {id:"m4", ten:"DOANH THU",               icon:"trendup",        lk:"tab.m4"},
-  {id:"m5", ten:"TỈNH/KHO",                icon:"map",            lk:"tab.m5", hide:true},
+  {id:"m5", ten:"TỈNH/KHO",                icon:"map",            lk:"tab.m5"},
   {id:"m6", ten:"HÀNH ĐỘNG",               icon:"clipboardcheck", lk:"tab.m6"},
   {id:"m7", ten:"TRÌNH CHIẾU (PPT)",       icon:"present",        lk:"tab.m7"},
   {id:"m8", ten:"HỎI ĐÁP",                 icon:"message",        lk:"tab.m8"},
@@ -4886,7 +4886,7 @@ function renderM5(){
   const cN=cnt(nhaTot), cK=cnt(khoTot);
   const banner=bannerHTML("TỔNG QUAN","map",[
     bItem("Bảo hành tại nhà","home",`${cN.dat}/${cN.co}`,"tiêu chí",`Biểu mẫu ${cN.tot} tiêu chí`,true),
-    bItem("Bảo hành tại kho","warehouse",`${cK.dat}/${cK.co}`,"tiêu chí",`Biểu mẫu ${cK.tot} tiêu chí`,true),
+    ...(KHOKHO.length?[bItem("Bảo hành tại kho","warehouse",`${cK.dat}/${cK.co}`,"tiêu chí",`Biểu mẫu ${cK.tot} tiêu chí`,true)]:[]),
     bItem("Số đơn vị","building",f0(unitsNha(S).length+unitsKho(S).length),"tỉnh/kho",esc(scopeLbl(S)))
   ]);
   return gopBar(S) + banner + chartHieuSuatVung(S) + drillPanel(S) + rankingPanel(S)
@@ -4906,7 +4906,7 @@ function drillPanel(S){
       const S2=Object.assign({},S,{vung:vg,kho:"ALL"});
       const q=calcChatLuongTong(S2), dt=calcTongDoanhThu(S2), cp=calcChiPhiAll(S2);
       const sc=perfScore({cl:q.all,sl:calcSanLuongTong("kho",S2),dg:calcDonGia("kho",S2),cp,tongDt:dt});
-      return dCard({title:vg,sub:`${KHO_ORDER.filter(k=>KHOMAP[k].vung===vg).length} tỉnh · ${KHOKHO.filter(k=>vungOf(k)===vg).length} kho BH`,
+      return dCard({title:vg,sub:`${KHO_ORDER.filter(k=>KHOMAP[k].vung===vg).length} tỉnh${KHOKHO.length?` · ${KHOKHO.filter(k=>vungOf(k)===vg).length} kho BH`:" · BH tại nhà"}`,
         icon:"map",score:sc,kpis:q.all,attr:`data-drill="tinh:${esc(vg)}"`});
     }).join("")}</div>`;
   }else if(d.level==="tinh"){
@@ -7354,7 +7354,10 @@ function vtToolbar() {
   return `<div class="vtbar">
     <div class="vtbar-l">${ic('trophy', 15)}<b>ĐÁNH GIÁ VƯỢT TRỘI ${VT.meta.nam}</b>
       <span class="vtsub">Nguồn: ${esc(VT.meta.nguon)} · cập nhật ${esc(VT.meta.capNhat)}</span></div>
-    </div>`;
+    <div class="vtbar-r">
+      <button class="btn" id="vtXuatDS">${ic('download', 13)} Xuất Excel Danh Sách Vượt Trội</button>
+      <button class="btn ghost" id="vtXuatData">${ic('file', 13)} Xuất Data nguồn</button>
+    </div></div>`;
 }
 
 function vtNote(S) {
@@ -7508,9 +7511,9 @@ function vtTaiFile(url, ten, nut) {
     .finally(() => { if (b) { b.disabled = false; b.innerHTML = cu; } });
 }
 const vtXuatDanhSach = () => vtTaiFile('VUOT-TROI-2026.xlsx',
-  `VUOT_TROI_2026__${(VT.meta.thang || []).length}_THANG_DAU_NAM_BHSC.xlsx`, 'vtXuatDS');
+  `VUOT_TROI_2026_KHANH_HOA__${(VT.meta.thang || []).length}_THANG_DAU_NAM_BHSC.xlsx`, 'vtXuatDS');
 const vtXuatData = () => vtTaiFile('DATA-NGUON-VUOT-TROI.xlsx',
-  'VTB - DH DATA 2026 (ban luu tu web).xlsx', 'vtXuatData');
+  'KHANH HOA - DATA VUOT TROI 2026 (ban luu tu web).xlsx', 'vtXuatData');
 
 </script>
 <script>
