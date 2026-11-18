@@ -7718,7 +7718,19 @@ const khTrd = v => v == null ? '—' : (Number(v) / 1e6).toLocaleString('vi-VN',
 const EC = { reg: new Map(), inst: new Set(), seq: 0 };
 const ecOK = () => typeof window.echarts !== 'undefined' && !!window.echarts.init;
 const EC_FONT = 'Inter, Roboto, -apple-system, "Segoe UI", Arial, sans-serif';
+/* GIAO DIỆN THEO MẪU ANH THU CHỌN 18/11: nền sáng xanh da trời — cột xanh da trời chuyển sắc, đường đích màu cam,
+   xanh đậm làm màu thứ 3. Kiểm validator dataviz (all-pairs, nền trắng): độ sáng & độ đậm ĐẠT · mù màu ΔE 19,8 · thường 20,1.
+   Xanh da trời / cam < 3:1 so với nền trắng -> mọi biểu đồ luôn có nhãn số + nút “Bảng số”.
+   Màu 4 (hồng tím) chỉ dùng cho bánh vòng — có khe hở + chú thích kèm số nên đạt điều kiện ΔE 7,5. Màu 5 = xám xanh (“nhóm khác”). */
+Object.assign(CH, { s1: '#2E9FD6', s2: '#E8862F', s3: '#2A5A9E', s4: '#C4508A', s5: '#A9BCCB', navy: '#1E5580' });
+CH.st.good = '#22A06B';   /* xanh lá trạng thái ĐẠT dịu hơn cho hợp nền xanh da trời (vẫn giữ nghĩa ĐẠT) */
 const EC_C = [CH.s1, CH.s2, CH.s3];
+/* cột / thanh: tô chuyển sắc nhẹ cùng 1 màu (đậm ở gốc, sáng ở đầu) — kiểu dashboard hiện đại */
+const ecMix = (hex, t) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const m = v => Math.round(v + (255 - v) * t).toString(16).padStart(2, '0'); return '#' + m(r) + m(g) + m(b); };
+const ecGrad = (col, ngang) => (typeof col !== 'string' || col[0] !== '#' || col.length !== 7 || !ecOK()) ? col
+  : ngang ? new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: ecMix(col, .45) }, { offset: 1, color: col }])
+  : new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: col }, { offset: 1, color: ecMix(col, .5) }]);
 /* ô chờ biểu đồ: giữ sẵn bản SVG cũ bên trong — không tải được thư viện thì vẫn có biểu đồ */
 const EC_FB = '<div class="ecfb">Đang tải biểu đồ… (nếu không hiện, bấm “Bảng số” để xem số liệu)</div>';
 function ecBox(build, h, fallback, aria) {
@@ -7758,7 +7770,7 @@ function ecBase(o) {
 }
 function ecTip(fmt, o) {
   return Object.assign({
-    trigger: 'axis', confine: true, backgroundColor: 'rgba(14,26,43,.94)', borderWidth: 0, padding: [9, 12],
+    trigger: 'axis', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, padding: [9, 12],
     textStyle: { color: '#fff', fontSize: 12, fontFamily: EC_FONT },
     extraCssText: 'border-radius:9px;box-shadow:0 10px 28px rgba(14,26,43,.28);',
     axisPointer: { type: 'line', lineStyle: { color: '#93A0B4', width: 1 }, shadowStyle: { color: 'rgba(33,91,150,.07)' } },
@@ -7771,7 +7783,7 @@ function ecTip(fmt, o) {
           return `<div style="display:flex;gap:14px;justify-content:space-between;align-items:center;line-height:1.75">
             <span>${p.marker}${esc(p.seriesName)}</span><b style="font-variant-numeric:tabular-nums">${esc(fmt ? fmt(v, p) : v)}</b></div>`;
         }).join('');
-      return `<div style="font-weight:800;margin-bottom:3px;color:#FFD500">${head}</div>${rows || '<i style="opacity:.7">chưa có số liệu</i>'}`;
+      return `<div style="font-weight:800;margin-bottom:3px;color:#A6E0F8">${head}</div>${rows || '<i style="opacity:.7">chưa có số liệu</i>'}`;
     }
   }, o || {});
 }
@@ -7788,7 +7800,7 @@ const ecYVal = (axisFmt, o) => Object.assign({
 }, o || {});
 const ecSelArea = (labels, sel) => {
   if (!sel || !sel.some(Boolean) || sel.every(Boolean)) return undefined;
-  return { silent: true, itemStyle: { color: 'rgba(255,213,0,.14)' },
+  return { silent: true, itemStyle: { color: 'rgba(46,159,214,.08)' },
     data: labels.map((l, i) => sel[i] ? [{ xAxis: l }, { xAxis: l }] : null).filter(Boolean) };
 };
 const ecArea = col => ({ color: new echarts.graphic.LinearGradient(0, 0, 0, 1,
@@ -7801,18 +7813,18 @@ function ecOptColumns(labels, series, opt) {
     const fmt = opt.fmt || f0;
     return ecBase({ grid: { left: 6, right: 70, top: 26, bottom: 4, containLabel: true },
       tooltip: ecTip(null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } },
-        formatter: ps => `<b style="color:#FFD500">${esc(labels[0])} · ${esc(series[ps[0].dataIndex].name)}</b><br><b>${esc(ps[0].value == null || ps[0].value === '-' ? '–' : fmt(ps[0].value))}</b>` }),
+        formatter: ps => `<b style="color:#A6E0F8">${esc(labels[0])} · ${esc(series[ps[0].dataIndex].name)}</b><br><b>${esc(ps[0].value == null || ps[0].value === '-' ? '–' : fmt(ps[0].value))}</b>` }),
       xAxis: ecYVal(opt.axisFmt), yAxis: { type: 'category', inverse: true, data: series.map(x => x.name), axisTick: { show: false }, axisLine: { show: false },
         axisLabel: { color: CH.ink2, fontWeight: 700, fontSize: 12 } },
       series: [{ type: 'bar', name: labels[0], barWidth: 24, showBackground: true, backgroundStyle: { color: '#F1F4F8', borderRadius: 4 },
-        data: series.map(x => ({ value: ecV(x.data[0]), itemStyle: { color: x.color, borderRadius: [0, 4, 4, 0] } })),
+        data: series.map(x => ({ value: ecV(x.data[0]), itemStyle: { color: ecGrad(x.color, 1), borderRadius: [0, 6, 6, 0] } })),
         label: { show: true, position: 'right', fontWeight: 800, color: CH.ink, fontSize: 12, formatter: q => q.value === '-' ? '–' : fmt(q.value) } }] });
   }
   return ecBase({
     tooltip: ecTip(opt.fmt ? (v => opt.fmt(v)) : null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } } }),
     xAxis: ecXCat(labels, null, opt.rot), yAxis: ecYVal(opt.axisFmt),
     series: series.map(s => ({ type: 'bar', name: s.name, data: s.data.map(ecV), barMaxWidth: 26, barGap: '10%',
-      itemStyle: { color: s.color, borderRadius: [4, 4, 0, 0] }, emphasis: { focus: 'series' } }))
+      itemStyle: { color: ecGrad(s.color), borderRadius: [6, 6, 0, 0] }, emphasis: { focus: 'series' } }))
   });
 }
 /* --- đường xu hướng (thay chLine) --- */
@@ -7842,7 +7854,7 @@ function ecOptBullet(rows, opt) {
     grid: { left: 6, right: 6, top: 26, bottom: 2, containLabel: true },
     tooltip: ecTip(null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } },
       formatter: ps => { const r = rows[ps[0].dataIndex];
-        return `<div style="font-weight:800;color:#FFD500;margin-bottom:3px">${esc(r.label)}</div>
+        return `<div style="font-weight:800;color:#A6E0F8;margin-bottom:3px">${esc(r.label)}</div>
           <div>Thực đạt: <b>${esc(r.actual == null ? '–' : fmt(r.actual))}</b></div>
           <div>Target: <b>${esc(r.target == null ? '–' : fmt(r.target))}</b></div>
           <div>Tỷ lệ: <b>${esc(r.rate == null ? '–' : pc1(r.rate))}</b></div>`; } }),
@@ -7864,7 +7876,7 @@ function ecOptBullet(rows, opt) {
 function ecOptStack(segs) {
   const tot = segs.reduce((s, x) => s + (x.value || 0), 0) || 1;
   return ecBase({ toolbox: { show: false }, grid: { left: 0, right: 0, top: 4, bottom: 4 },
-    tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(14,26,43,.94)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
+    tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
       formatter: p => `<b>${esc(p.seriesName)}</b>: ${f0(p.value)} · ${pc(p.value / tot)}` },
     xAxis: { type: 'value', max: tot, show: false }, yAxis: { type: 'category', data: [''], show: false },
     series: segs.map((s, i) => ({ type: 'bar', name: s.label, stack: 'a', barWidth: 28, data: [s.value],
@@ -8242,8 +8254,8 @@ function khTNProfile(t, L) {
   const hm = []; keys.forEach((c, yi) => TH.forEach((m, xi) => { const d = (t.thang[String(m)] || {}).tc; const x = d && d[c];
     hm.push([xi, yi, x ? (x.d ? 2 : 1) : 0, x ? x.d : null, x ? khFmtTN(c, x.kq) : '', x ? khFmtTN(c, x.kpi) : '']); }));
   const chB = ecBox(() => ecBase({ toolbox: { show: false }, grid: { left: 6, right: 8, top: 34, bottom: 4, containLabel: true },
-    tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(14,26,43,.94)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
-      formatter: q => `<b style="color:#FFD500">${esc(CT[keys[q.value[1]]])} · ${lab[q.value[0]]}</b><br>Điểm: <b>${q.value[3] == null ? '—' : q.value[3]}</b><br>KQ: ${esc(q.value[4] || '—')} · KPI: ${esc(q.value[5] || '—')}` },
+    tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
+      formatter: q => `<b style="color:#A6E0F8">${esc(CT[keys[q.value[1]]])} · ${lab[q.value[0]]}</b><br>Điểm: <b>${q.value[3] == null ? '—' : q.value[3]}</b><br>KQ: ${esc(q.value[4] || '—')} · KPI: ${esc(q.value[5] || '—')}` },
     xAxis: { type: 'category', data: lab, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: CH.muted, fontSize: 11 }, splitArea: { show: false } },
     yAxis: { type: 'category', data: keys.map(c => CT[c]), inverse: true, axisTick: { show: false }, axisLine: { show: false }, axisLabel: { color: CH.ink2, fontSize: 11, fontWeight: 700, width: 170, overflow: 'truncate' } },
     visualMap: { type: 'piecewise', dimension: 2, orient: 'horizontal', top: 0, left: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, color: CH.ink2 },
@@ -8297,11 +8309,11 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu) {
   const coDK = them.some(v => v !== '-'), laDuong = chieu === 'line';
   return ecBase({
     legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 10, textStyle: { fontSize: 11, color: CH.ink2, fontWeight: 600 } },
-    grid: { left: 6, right: 62, top: 34, bottom: 4, containLabel: true },
+    grid: { left: 6, right: 62, top: window.innerWidth < 600 ? 56 : 34, bottom: 4, containLabel: true },
     tooltip: ecTip(null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } },
       formatter: ps => { const i = ps[0].dataIndex, x = ser[i] || {};
         const r = x.t ? (x.dk != null ? x.dk : x.a) / x.t : null;
-        return `<div style="font-weight:800;color:#FFD500;margin-bottom:3px">${Dt.lab[i]}</div>
+        return `<div style="font-weight:800;color:#A6E0F8;margin-bottom:3px">${Dt.lab[i]}</div>
           <div>${esc(nameA)}: <b>${esc(x.a == null ? '–' : fmt(x.a))}</b></div>
           ${x.dk != null && x.a != null && x.dk > x.a ? `<div>Dự kiến cuối tháng: <b>${esc(fmt(x.dk))}</b></div>` : ''}
           <div>${esc(nameT)}: <b>${esc(x.t == null ? '–' : fmt(x.t))}</b></div>
@@ -8312,10 +8324,10 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu) {
         ? { type: 'line', name: nameA, data: a, smooth: .18, symbol: 'circle', symbolSize: 7, lineStyle: { width: 2.6, color: CH.s1 },
             itemStyle: { color: CH.s1, borderColor: '#fff', borderWidth: 2 }, areaStyle: ecArea(CH.s1), markArea: ecSelArea(Dt.lab, Dt.selF),
             endLabel: { show: true, formatter: q => fmt(q.value), fontSize: 10.5, fontWeight: 800, color: CH.ink, distance: 6 } }
-        : { type: 'bar', name: nameA, stack: 'a', barMaxWidth: 30, data: a, itemStyle: { color: CH.s1, borderRadius: coDK ? 0 : [4, 4, 0, 0] }, markArea: ecSelArea(Dt.lab, Dt.selF) },
+        : { type: 'bar', name: nameA, stack: 'a', barMaxWidth: 30, data: a.map((v, i) => ({ value: v, itemStyle: { borderRadius: them[i] !== '-' ? 0 : [6, 6, 0, 0] } })), itemStyle: { color: ecGrad(CH.s1) }, markArea: ecSelArea(Dt.lab, Dt.selF) },
       ...(coDK && !laDuong ? [{ type: 'bar', name: 'Dự kiến thêm đến cuối tháng', stack: 'a', barMaxWidth: 30, data: them,
-        itemStyle: { color: 'rgba(42,120,214,.20)', borderColor: CH.s1, borderType: 'dashed', borderWidth: 1, borderRadius: [4, 4, 0, 0] } }] : []),
-      { type: 'line', name: nameT, data: t, symbol: 'circle', symbolSize: 6, step: false,
+        itemStyle: { color: 'rgba(46,159,214,.16)', borderColor: CH.s1, borderType: 'dashed', borderWidth: 1, borderRadius: [6, 6, 0, 0] } }] : []),
+      { type: 'line', name: nameT, data: t, symbol: 'diamond', symbolSize: 8, step: false, z: 4,
         lineStyle: { color: CH.s2, width: 2, type: [6, 4] }, itemStyle: { color: CH.s2, borderColor: '#fff', borderWidth: 1.5 },
         endLabel: { show: !laDuong, formatter: q => fmt(q.value), fontSize: 10.5, fontWeight: 800, color: CH.ink, distance: 6 },
         labelLayout: { moveOverlap: 'shiftY' } }
@@ -8332,30 +8344,53 @@ function khTQPlanCard(Dt, key, title, icon, fmt, axisFmt, nameA, nameT, note, ch
     svg: ecBox(() => khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu), 300, '', title),
     table: chTable(['Tháng', nameA, 'Dự kiến cuối tháng', nameT, 'Tỷ lệ'], rows) });
 }
+/* bánh vòng (donut) cơ cấu — tổng ở giữa, chú thích bên phải có số tiền + tỷ trọng (màn hẹp: chú thích xuống dưới) */
+function khOptDonut(nhom, tong) {
+  const lg = (orient, extra) => Object.assign({ orient, itemWidth: 12, itemHeight: 12, itemGap: orient === 'vertical' ? 16 : 10, icon: 'roundRect',
+    formatter: n => { const k = nhom.find(x => x.name === n); return k ? `{n|${n}}\n{v|${tr(k.actual)} · ${pc1(k.actual / tong)}}` : n; },
+    textStyle: { rich: { n: { fontSize: 12, fontWeight: 700, color: CH.ink2, lineHeight: 18 }, v: { fontSize: 12, fontWeight: 800, color: CH.ink, lineHeight: 16 } } } }, extra);
+  const ttl = (x, y) => ({ text: tr(tong), subtext: 'Tổng doanh thu', left: x, top: y, textAlign: 'center', itemGap: 3,
+    textStyle: { fontSize: 22, fontWeight: 800, color: CH.ink, fontFamily: EC_FONT }, subtextStyle: { fontSize: 11, fontWeight: 600, color: CH.muted, fontFamily: EC_FONT } });
+  return { baseOption: ecBase({ toolbox: { show: false },
+      tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, padding: [9, 12],
+        textStyle: { color: '#fff', fontSize: 12, fontFamily: EC_FONT }, extraCssText: 'border-radius:9px;box-shadow:0 10px 28px rgba(14,26,43,.28);',
+        formatter: q => { const k = nhom[q.dataIndex]; return `<b style="color:#A6E0F8">${esc(k.name)}</b><br>Thực đạt: <b>${tr(k.actual)}</b> (${pc1(k.actual / tong)})<br>Target: <b>${k.target == null ? '–' : tr(k.target)}</b>${k.rate != null ? `<br>Tỷ lệ dự kiến đạt: <b>${pc1(k.rate)}</b>` : ''}`; } },
+      title: ttl('31%', '41%'), legend: lg('vertical', { right: 8, top: 'middle' }),
+      series: [{ type: 'pie', name: 'Doanh thu', radius: ['57%', '82%'], center: ['31%', '50%'], padAngle: 1.5, avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 7, borderColor: '#fff', borderWidth: 2 }, label: { show: false }, labelLine: { show: false },
+        emphasis: { scale: true, scaleSize: 6 },
+        data: nhom.map(k => ({ name: k.name, value: k.actual, itemStyle: { color: k.col } })) }] }),
+    media: [{ query: { maxWidth: 520 }, option: { title: ttl('50%', '27%'), legend: lg('horizontal', { left: 'center', top: 'auto', bottom: 0, right: 'auto' }),
+      series: [{ center: ['50%', '36%'], radius: ['42%', '62%'] }] } }] };
+}
 function khTQ(S) {
   if (!M(S) && !isYear(S)) return '';
   let Dt; try { Dt = khTQData(S); } catch (e) { console.warn('[khTQ]', e); return ''; }
   if (!Dt.ms.length) return '';
   /* 1) bản đồ chất lượng: 5 tiêu chí × tháng */
   const tc = (Dt.cl.find(q => q && q.all && q.all.length) || { all: [] }).all.map(k => ({ key: k.key, name: k.name }));
-  const hm = [];
+  const hm = [], hep = window.innerWidth < 600;   /* màn hẹp (điện thoại): xoay bảng — tháng theo hàng dọc */
   tc.forEach((c, yi) => Dt.cl.forEach((q, xi) => { const k = q && q.all ? q.all.find(z => z.key === c.key) : null;
     const st = k && k.actual != null ? (k.status === 'good' ? 2 : 1) : 0;
     hm.push([xi, yi, st, k && k.actual != null ? k.fmt(k.actual) : '', k && k.target != null ? k.fmt(k.target) : '']); }));
   const clCard = chartCard({ title: 'Chất lượng 5 tiêu chí theo tháng', icon: 'shield',
     sub: `Xanh = ĐẠT · đỏ = KHÔNG ĐẠT · xám = chưa có số · ${scopeLbl(S)}`,
-    svg: ecBox(() => ecBase({ toolbox: { show: false }, grid: { left: 6, right: 8, top: 34, bottom: 4, containLabel: true },
-      tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(14,26,43,.94)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
-        formatter: q => `<b style="color:#FFD500">${esc(tc[q.value[1]].name)} · ${Dt.lab[q.value[0]]}</b><br>Thực đạt: <b>${esc(q.value[3] || '—')}</b><br>Target: <b>${esc(q.value[4] || '—')}</b>` },
-      xAxis: { type: 'category', data: Dt.lab, axisTick: { show: false }, axisLine: { show: false },
-        axisLabel: { color: CH.muted, fontSize: 11, formatter: (v, i) => Dt.selF[i] ? `{b|${v}}` : v, rich: { b: { fontWeight: 800, color: CH.ink } } } },
-      yAxis: { type: 'category', data: tc.map(c => c.name), inverse: true, axisTick: { show: false }, axisLine: { show: false },
-        axisLabel: { color: CH.ink2, fontSize: 11, fontWeight: 700 } },
+    svg: ecBox(() => { const xx = q => hep ? q.value[1] : q.value[0], yy = q => hep ? q.value[0] : q.value[1];
+      const axM = { type: 'category', data: Dt.lab, axisTick: { show: false }, axisLine: { show: false }, inverse: hep,
+        axisLabel: { color: CH.muted, fontSize: 11, formatter: (v, i) => Dt.selF[i] ? `{b|${v}}` : v, rich: { b: { fontWeight: 800, color: CH.ink } } } };
+      const axT = { type: 'category', data: tc.map(c => c.name), inverse: !hep, axisTick: { show: false }, axisLine: { show: false },
+        position: hep ? 'top' : undefined,
+        axisLabel: hep ? { color: CH.ink2, fontSize: 9, fontWeight: 700, interval: 0, width: 58, overflow: 'break', lineHeight: 11 }
+          : { color: CH.ink2, fontSize: 11, fontWeight: 700 } };
+      return ecBase({ toolbox: { show: false }, grid: { left: 6, right: 8, top: hep ? 66 : 34, bottom: 4, containLabel: true },
+      tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
+        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${Dt.lab[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || '—')}</b><br>Target: <b>${esc(q.value[4] || '—')}</b>` },
+      xAxis: hep ? axT : axM, yAxis: hep ? axM : axT,
       visualMap: { type: 'piecewise', dimension: 2, orient: 'horizontal', top: 0, left: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, color: CH.ink2 },
         pieces: [{ value: 2, label: 'Đạt', color: CH.st.good }, { value: 1, label: 'Không đạt', color: CH.st.bad }, { value: 0, label: 'Chưa có số', color: '#E2E8F0' }] },
-      series: [{ type: 'heatmap', name: 'Chất lượng', data: hm, itemStyle: { borderColor: '#fff', borderWidth: 3, borderRadius: 5 },
-        label: { show: true, formatter: q => q.value[3] || '', color: '#fff', fontWeight: 700, fontSize: 10.5 } }]
-    }), 44 + tc.length * 40, '', 'Chất lượng 5 tiêu chí theo tháng'),
+      series: [{ type: 'heatmap', name: 'Chất lượng', data: hep ? hm.map(d => [d[1], d[0], d[2], d[3], d[4]]) : hm, itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 5 },
+        label: { show: true, formatter: q => q.value[3] || '', color: '#fff', fontWeight: 700, fontSize: hep ? 9.5 : 10.5 } }]
+    }); }, hep ? 80 + Dt.lab.length * 30 : 44 + tc.length * 40, '', 'Chất lượng 5 tiêu chí theo tháng'),
     table: chTable(['Tiêu chí', ...Dt.lab], tc.map((c, yi) => [esc(c.name), ...Dt.lab.map((l, xi) => { const h = hm.find(z => z[0] === xi && z[1] === yi);
       return h && h[3] ? `${esc(h[3])} <span class="badge ${h[2] === 2 ? 'good' : 'bad'}" style="font-size:9px">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>` : '–'; })])) });
   /* 2) Vượt Trội: top 10 điểm lũy kế */
@@ -8370,8 +8405,8 @@ function khTQ(S) {
         xAxis: ecYVal(v => v, { max: maxD }),
         yAxis: { type: 'category', inverse: true, data: top.map(p => p.ten), axisTick: { show: false }, axisLine: { show: false },
           axisLabel: { color: CH.ink2, fontWeight: 700, fontSize: 11.5 } },
-        series: [{ type: 'bar', name: 'Điểm lũy kế', barWidth: 14, showBackground: true, backgroundStyle: { color: '#F1F4F8', borderRadius: 4 },
-          data: top.map(p => ({ value: p.diem, itemStyle: { color: p.vt ? CH.s1 : '#A9BBD3', borderRadius: [0, 4, 4, 0] } })),
+        series: [{ type: 'bar', name: 'Điểm lũy kế', barWidth: 14, showBackground: true, backgroundStyle: { color: '#F1F4F8', borderRadius: 6 },
+          data: top.map(p => ({ value: p.diem, itemStyle: { color: p.vt ? ecGrad(CH.s1, 1) : '#CBD8E2', borderRadius: [0, 6, 6, 0] } })),
           label: { show: true, position: 'right', fontWeight: 800, color: CH.ink, fontSize: 11,
             formatter: q => q.value + (top[q.dataIndex].vt ? ' 🏆' : '') }, cursor: 'pointer' }] }),
         { __on: { click: q => khChonNV(top[q.dataIndex].ma) } }), 56 + top.length * 30, '', 'Top 10 Vượt Trội'),
@@ -8380,21 +8415,14 @@ function khTQ(S) {
   }
   /* 3) doanh thu theo nhóm kỳ đang chọn */
   let nhom = [];
+  const NC = [CH.s1, CH.s3, CH.s4, CH.s2, CH.s5];   /* màu gắn theo NHÓM (không theo thứ hạng) */
   try { nhom = ['Bảo hành tại nhà', 'BH 1 đổi 1', 'BHMR', 'SCDV'].map(c => calcDoanhThuCat(c, S)).concat([calcNgoaiMoi(S)])
+    .map((k, i) => k ? Object.assign({}, k, { col: NC[i] }) : k)
     .filter(k => k && k.actual != null && k.actual > 0).sort((a, b) => b.actual - a.actual); } catch (_) { }
   const tongN = nhom.reduce((s, k) => s + k.actual, 0);
   const nhomCard = nhom.length ? chartCard({ title: 'Doanh thu theo nhóm — kỳ đang xem', icon: 'banknote',
-    sub: `${kyLabel(S)} · tổng ${tr(tongN)} · nhãn = số tiền · tỷ trọng`,
-    svg: ecBox(() => ecBase({ grid: { left: 6, right: 104, top: 24, bottom: 2, containLabel: true },
-      tooltip: ecTip(null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } },
-        formatter: ps => { const k = nhom[ps[0].dataIndex]; return `<b style="color:#FFD500">${esc(k.name)}</b><br>Thực đạt: <b>${tr(k.actual)}</b> (${pc1(k.actual / tongN)})<br>Target: <b>${k.target == null ? '–' : tr(k.target)}</b>${k.rate != null ? `<br>Tỷ lệ dự kiến đạt: <b>${pc1(k.rate)}</b>` : ''}`; } }),
-      xAxis: ecYVal(v => fx(v, 0)),
-      yAxis: { type: 'category', inverse: true, data: nhom.map(k => k.name), axisTick: { show: false }, axisLine: { show: false },
-        axisLabel: { color: CH.ink2, fontWeight: 700, fontSize: 11.5 } },
-      series: [{ type: 'bar', name: 'Doanh thu', barWidth: 22, data: nhom.map(k => k.actual),
-        itemStyle: { color: CH.s1, borderRadius: [0, 4, 4, 0] },
-        label: { show: true, position: 'right', fontWeight: 800, color: CH.ink, fontSize: 11, formatter: q => `${tr(q.value)} · ${pc1(q.value / tongN)}` } }]
-    }), 356, '', 'Doanh thu theo nhóm'),
+    sub: `${kyLabel(S)} · tổng ${tr(tongN)} · bên phải = số tiền · tỷ trọng từng nhóm`,
+    svg: ecBox(() => khOptDonut(nhom, tongN), 330, '', 'Doanh thu theo nhóm'),
     table: chTable(['Nhóm', 'Thực đạt', 'Tỷ trọng', 'Target', 'Tỷ lệ'], nhom.map(k => [esc(k.name), tr(k.actual), pc1(k.actual / tongN), k.target == null ? '–' : tr(k.target), k.rate == null ? '–' : pc1(k.rate)])) }) : '';
   return `<div class="khtq"><div class="secttl khsecttl" data-khsec="PHÂN TÍCH XU HƯỚNG &amp; HIỆU SUẤT">${ic('trendup', 15)} PHÂN TÍCH XU HƯỚNG &amp; HIỆU SUẤT
       <span>${Dt.lab.length} tháng · ${esc(scopeLbl(S))} · rê chuột để xem số, bấm “Bảng số” để xem bảng</span></div>
@@ -8418,7 +8446,7 @@ function khTQSpark() {
     const under = el.querySelector('.emeter'); el.insertBefore(box, under);
     const c = echarts.init(box, null, { renderer: 'canvas' });
     c.setOption({ animationDuration: 700, grid: { left: 2, right: 2, top: 4, bottom: 2 },
-      tooltip: { trigger: 'axis', confine: true, backgroundColor: 'rgba(14,26,43,.94)', borderWidth: 0, padding: [5, 8], textStyle: { color: '#fff', fontSize: 11 },
+      tooltip: { trigger: 'axis', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, padding: [5, 8], textStyle: { color: '#fff', fontSize: 11 },
         formatter: ps => `${t.labels[ps[0].dataIndex]}: <b>${esc(ps[0].value == null || ps[0].value === '-' ? '–' : t.fmt(ps[0].value))}</b>` },
       xAxis: { type: 'category', data: t.labels, show: false, boundaryGap: false }, yAxis: { type: 'value', show: false, scale: true },
       series: [{ type: 'line', data: s.data.map(ecV), smooth: .3, symbol: 'circle', symbolSize: 4, showSymbol: false,
@@ -8491,6 +8519,8 @@ function khNavMo(on) {
   else { document.body.classList.toggle('khnav-on', on); khLS.set('KH_NAV', on ? '1' : '0'); }
   setTimeout(() => { syncStickyOffsets(); ecResizeAll(); }, 260);
 }
+/* mục lục: mặc định CHỈ HIỆN HẠNG MỤC CHÍNH (các trang); bấm mũi tên hoặc tên trang mới mở danh sách hạng mục con */
+const KH_NAVMO = new Set();
 function khNavRender() {
   const L = document.getElementById('khNavL'); if (!L) return;
   const q = khNorm((document.getElementById('khNavQ') || {}).value || '').trim();
@@ -8498,11 +8528,14 @@ function khNavRender() {
   L.innerHTML = KH_OUT.map(g => {
     n++;
     const okG = !q || khNorm(g.ten).indexOf(q) >= 0;
-    const its = g.items.map((t, k) => ({ t, k })).filter(x => okG || khNorm(x.t).indexOf(q) >= 0);
-    if (q && !okG && !its.length) return '';
-    return `<div class="khn-g ${g.i === ST.tab ? 'on' : ''}">
-      <button class="khn-tab" data-khnav="${g.i}"><span class="khn-n">${n}</span>${ic(g.icon, 14)}<b>${esc(g.ten)}</b><i>${g.items.length}</i></button>
-      ${its.length ? `<ol class="khn-it">${its.map(x => `<li><button data-khnav="${g.i}" data-khk="${x.k}" title="${esc(x.t)}">${esc(x.t)}</button></li>`).join('')}</ol>` : ''}</div>`;
+    const all = g.items.map((t, k) => ({ t, k })), hit = q ? all.filter(x => khNorm(x.t).indexOf(q) >= 0) : all;
+    if (q && !okG && !hit.length) return '';
+    const its = !q || KH_NAVMO.has(g.i) ? all : hit;          /* đang tìm: tự mở nhóm có hạng mục khớp, chỉ hiện mục khớp */
+    const mo = q ? its.length > 0 && (KH_NAVMO.has(g.i) || hit.length > 0) : KH_NAVMO.has(g.i);
+    return `<div class="khn-g ${g.i === ST.tab ? 'on' : ''} ${mo ? 'mo' : ''}">
+      <div class="khn-row"><button class="khn-tab" data-khnav="${g.i}" data-khmo="${g.i}"><span class="khn-n">${n}</span>${ic(g.icon, 14)}<b>${esc(g.ten)}</b></button>
+        ${g.items.length ? `<button class="khn-tg" data-khtg="${g.i}" aria-expanded="${mo}" title="${mo ? 'Thu gọn' : 'Mở'} ${g.items.length} hạng mục con"><i>${g.items.length}</i>${ic('khright', 12)}</button>` : ''}</div>
+      ${mo && its.length ? `<ol class="khn-it">${its.map(x => `<li><button data-khnav="${g.i}" data-khk="${x.k}" title="${esc(x.t)}">${esc(x.t)}</button></li>`).join('')}</ol>` : ''}</div>`;
   }).join('') || '<p class="khn-0">Không tìm thấy mục nào.</p>';
   khSpy();
 }
@@ -8558,8 +8591,12 @@ document.addEventListener('click', e => {
   const t = e.target;
   if (t.closest('[data-khunlock]')) { e.preventDefault(); khMoKhoa(); return; }
   if (t.closest('#khUGo')) { e.preventDefault(); khThuMo(); return; }
+  const tg = t.closest('[data-khtg]');
+  if (tg) { e.preventDefault(); const i = +tg.dataset.khtg; if (KH_NAVMO.has(i)) KH_NAVMO.delete(i); else { KH_NAVMO.clear(); KH_NAVMO.add(i); } khNavRender(); return; }
   const nv = t.closest('[data-khnav]');
-  if (nv) { e.preventDefault(); khNavGo(+nv.dataset.khnav, nv.dataset.khk == null ? null : +nv.dataset.khk); return; }
+  if (nv) { e.preventDefault();
+    if (nv.dataset.khmo != null) { KH_NAVMO.clear(); KH_NAVMO.add(+nv.dataset.khmo); khNavRender(); }
+    khNavGo(+nv.dataset.khnav, nv.dataset.khk == null ? null : +nv.dataset.khk); return; }
   if (t.closest('#khNavX')) { khNavMo(false); return; }
   if (t.closest('#khNavFab')) { khNavMo(window.matchMedia('(max-width:1180px)').matches ? true : true); return; }
   if (t.closest('#khNavBd')) { document.body.classList.remove('khnav-mo'); return; }
@@ -8680,7 +8717,7 @@ body.khnav-mo .khn-bd{display:block}
 .khh-av{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-size:24px;font-weight:800;background:var(--accent);color:#0B1E38;flex:none;box-shadow:0 0 0 4px rgba(255,213,0,.22)}
 .khh-av.tn{background:#fff}
 .khh-t{flex:1;min-width:0}.khh-t h2{font-size:21px;font-weight:800;letter-spacing:-.2px;margin:0 0 3px}
-.khh-t>div{font-size:12px;color:#C9D6E8}.khh-t .vtma{color:#FFD500}
+.khh-t>div{font-size:12px;color:#C9D6E8}.khh-t .vtma{color:#A6E0F8}
 .khh-b{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .khpill{display:inline-block;background:rgba(255,255,255,.12);color:#fff;font-size:10.5px;font-weight:800;padding:2px 9px;border-radius:99px}
 .khnvnav{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -8700,6 +8737,127 @@ body.khnav-mo .khn-bd{display:block}
 .khlockbox svg{color:var(--navy-600)}.khlockbox b{color:var(--ink);font-size:14px}.khlockbox .btn{margin-top:6px}
 .khmuted{color:var(--muted);font-size:12px}
 .khcard>.body{padding:14px 15px}
+/* ---- mục lục thu gọn: chỉ hiện trang chính, bấm mới mở hạng mục con ---- */
+.khn-row{display:flex;align-items:center;gap:2px}
+.khn-row .khn-tab{flex:1;min-width:0}
+.khn-tab b{line-height:1.3;overflow-wrap:anywhere}
+.khn-tg{flex:none;display:inline-flex;align-items:center;gap:5px;height:29px;padding:0 7px 0 5px;border:none;background:transparent;
+  color:#8FA6C4;border-radius:8px;cursor:pointer;font:inherit}
+.khn-tg:hover{background:rgba(255,255,255,.09);color:#fff}
+.khn-tg i{font-style:normal;font-size:10px;font-weight:800;color:#A9BBD3;background:rgba(255,255,255,.08);border-radius:99px;padding:1px 7px}
+.khn-tg svg{transition:transform .2s ease}
+.khn-g.mo .khn-tg svg{transform:rotate(90deg);color:var(--accent)}
+.khn-g.mo .khn-tg i{background:var(--accent);color:#0B1E38}
+.khn-g{margin-top:2px;border-radius:10px}
+.khn-g.mo{background:rgba(255,255,255,.035)}
+.khn-it{animation:khit .18s ease-out}
+@keyframes khit{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+/* ==== GIAO DIỆN THEO MẪU: NỀN SÁNG XANH DA TRỜI (thẻ trắng bo tròn lớn · cột xanh da trời · đường cam) ==== */
+:root{--navy-900:#0F3049;--navy-800:#174264;--navy-700:#1E5580;--navy-600:#2A6C9C;--navy-500:#3A87BA;--navy-050:#EAF5FB;
+  --accent:#F2994A;--accent-d:#DB7F2E;--plane:#EDF6FB;--sunken:#EEF4F8;--hair:#E3ECF2;--hair-2:#CFDDE7;
+  --ink:#14212B;--ink-2:#3B4B58;--muted:#6B7C8A;--s1:#2E9FD6;--s2:#E8862F;--s3:#2A5A9E;--r-lg:18px;
+  --sky:#2E9FD6;--sky-l:#8FD3F2;--sky-d:#1E5580;--good:#22A06B;--good-bg:#E6F6EE;--good-tx:#13794A}
+body{background:linear-gradient(180deg,#E3F2FB 0,#EDF6FB 420px,#F3F8FB 100%) fixed}
+::selection{background:#BFE6F8;color:#0F3049}
+/* thanh đầu trang: trắng, chữ đậm */
+.appbar{background:rgba(255,255,255,.96);color:var(--ink);border-bottom:1px solid #DCEAF3;box-shadow:0 4px 18px rgba(30,85,128,.06);backdrop-filter:blur(6px)}
+.brand-div{background:#DCEAF3}
+.htxt h1{color:#0F3049}.htxt h1 em{color:var(--sky)}
+.htxt p{color:var(--muted)}
+.period{background:#F2F9FD;border-color:#D6E9F4}
+.period .pl{color:#7A93A6}.period .pv{color:#1E5580}.period .ps{color:var(--muted)}
+.hbtn{background:#F4F9FC;border-color:#D8E7F1;color:#1E3A50;font-weight:700}
+.hbtn:hover{background:#E6F4FB;border-color:#9FD2EE;color:#0F3049}
+.hbtn.acc{background:linear-gradient(135deg,#3DB0E3,#1E7DB8);border-color:#1E7DB8;color:#fff;box-shadow:0 6px 14px rgba(46,159,214,.28)}
+.hbtn.acc:hover{background:linear-gradient(135deg,#46B8EA,#2288C6)}
+.hbtn.khlockbtn{border-color:#F2C49A;background:#FFF6EE;color:#8A4B12}.hbtn.khlockbtn svg{color:#E8862F}
+.hbtn.khlockbtn.on{border-color:#9ED9B5;background:#EDFAF2;color:#13703F}.hbtn.khlockbtn.on svg{color:#1E9E57}
+.filterbar{background:rgba(255,255,255,.92);border-bottom-color:#E1EDF4}
+.storechips b.cur{background:var(--sky);color:#fff}
+.storechips b.has{background:#E3F3FB;color:#1E6E9E}
+.tabbar{background:#fff;border-bottom-color:#E1EDF4}
+.tab[aria-selected="true"]{color:#0F3049;border-bottom-color:var(--sky)}
+.tab[aria-selected="true"] .tnum{background:var(--sky);color:#fff}
+.tab:hover{color:#1E6E9E}
+.mstrip button[aria-pressed="true"],.mpre button[aria-pressed="true"]{background:var(--sky);border-color:#1E86C0;color:#fff}
+/* thẻ & tiêu đề */
+.card{border-color:#E3ECF2;box-shadow:0 1px 2px rgba(30,85,128,.04),0 8px 24px rgba(30,85,128,.06)}
+.card:hover{box-shadow:0 2px 4px rgba(30,85,128,.05),0 16px 34px rgba(30,85,128,.10)}
+.card>header{background:#fff;border-bottom:1px solid #EEF4F8;padding:14px 17px}
+.card>header .ci{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#8FD3F2,#2E9FD6);color:#fff;
+  box-shadow:0 4px 12px rgba(46,159,214,.30)}
+.card>header h3{text-transform:none;letter-spacing:0;font-size:14.5px;font-weight:800;color:#14212B}
+.card>header .sub{font-size:11px;margin-top:2px;color:#7A8A97}
+.card>.body{padding:16px 18px}
+.tbtn{border-radius:99px;padding:5px 12px;background:#F4F9FC;border-color:#D8E7F1;color:#1E3A50}
+.tbtn:hover{background:#E6F4FB;border-color:#9FD2EE;color:#0F3049}
+.tbtn[aria-pressed="true"]{background:var(--sky);border-color:var(--sky);color:#fff}
+.exec{border-radius:20px;padding:17px 18px 15px;border-color:#E3ECF2;box-shadow:0 1px 2px rgba(30,85,128,.04),0 10px 26px rgba(30,85,128,.07)}
+.exec::before{width:0}
+.exec .eico,.exec.st-good .eico,.exec.st-warn .eico,.exec.st-bad .eico{width:40px;height:40px;border-radius:50%;
+  background:linear-gradient(135deg,#9BD9F4,#2E9FD6);color:#fff;box-shadow:0 5px 14px rgba(46,159,214,.32)}
+.exec .elbl{color:#4F6272;text-transform:none;letter-spacing:.1px;font-size:12.5px;font-weight:700}
+.exec .eval{font-size:32px;color:#14212B;letter-spacing:-1.2px}
+.exec .emeter{height:7px;background:#EAF2F7}
+.module>.secttl::after,.khsecttl::after{content:"";flex:1 1 60px;min-width:60px;height:1px;order:2;
+  background:linear-gradient(90deg,#BFD6E4,rgba(191,214,228,0))}
+.secttl .after{order:3}
+.secttl{font-size:14.5px;color:#14212B;text-transform:none;letter-spacing:.1px}
+.secttl .ico,.secttl>svg{color:var(--sky)}
+.banner{background:linear-gradient(115deg,#1E5580 0%,#2683BA 58%,#3FA9DD 100%);box-shadow:0 10px 26px rgba(30,85,128,.20)}
+.banner::after{background:radial-gradient(circle,rgba(255,255,255,.16),transparent 68%)}
+.banner .bttl{color:#fff}
+.bitem.hero{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.38)}
+.bitem.hero .bv{color:#fff}
+.bitem .bl,.bitem .bm{color:#D5ECF8}
+/* mục lục bên trái: trắng, chữ đậm, mục đang mở viền xanh */
+.khnav{background:#fff;color:#3B4B58;border-right:1px solid #DCEAF3;box-shadow:6px 0 24px rgba(30,85,128,.08)}
+.khn-h{border-bottom-color:#EEF4F8}
+.khn-tt{color:var(--sky)}.khn-tt b{color:#14212B}.khn-tt small{color:#7A8A97}
+.khn-x{background:#F2F8FC;color:#1E5580}.khn-x:hover{background:#E1F1FA}
+.khn-s{background:#F4F9FC;border-color:#DCEAF3;color:#7A8A97}
+.khn-s input{color:#14212B}.khn-s input::placeholder{color:#94A6B4}
+.khn-l{scrollbar-color:#CFDDE7 transparent}
+.khn-tab{color:#1E3A50}.khn-tab:hover{background:#F0F7FC}
+.khn-n{background:#EEF4F8;color:#4F6272}
+.khn-g.on>.khn-row .khn-tab,.khn-g.on>.khn-tab{background:#E6F4FB;color:#0F3049}
+.khn-g.on .khn-n{background:var(--sky);color:#fff}
+.khn-tg{color:#7A8A97}.khn-tg:hover{background:#EEF6FB;color:#1E5580}
+.khn-tg i{background:#EEF4F8;color:#4F6272}
+.khn-g.mo{background:#F6FAFD}
+.khn-g.mo .khn-tg svg{color:var(--sky)}
+.khn-g.mo .khn-tg i{background:var(--sky);color:#fff}
+.khn-it{border-left-color:#DCEAF3}
+.khn-it button,.khn-g:not(.on) .khn-it button{color:#56697A}
+.khn-it button:hover{background:#EEF6FB;color:#0F3049}
+.khn-it button.cur{color:#0F3049;background:#E3F3FB}
+.khn-it button.cur::before{background:var(--sky)}
+.khn-0{color:#7A8A97}
+.khn-f{border-top-color:#EEF4F8}
+.khn-lock{background:#FFF6EE;border-color:#F2C49A;color:#5A3412}.khn-lock small{color:#9A6A44}.khn-lock svg{color:#E8862F}
+.khn-lock.on{background:#EDFAF2;border-color:#9ED9B5;color:#13532F}.khn-lock.on small{color:#3F7D5A}.khn-lock.on svg{color:#1E9E57}
+.khn-fab{background:linear-gradient(135deg,#3DB0E3,#1E7DB8);box-shadow:0 8px 22px rgba(30,125,184,.35)}.khn-fab svg{color:#fff}
+.khn-bd{background:rgba(15,48,73,.35)}
+@keyframes khfl{0%{box-shadow:0 0 0 3px rgba(46,159,214,.75)}100%{box-shadow:0 0 0 3px rgba(46,159,214,0)}}
+/* trang chi tiết nhân viên */
+.khhero>.body{background:linear-gradient(120deg,#1E5580,#2E9FD6)}
+.khhero.win>.body{background:linear-gradient(120deg,#1E5580,#2E9FD6 62%,#E8A04F)}
+.khh-av{background:#fff;color:#1E5580;box-shadow:0 0 0 4px rgba(255,255,255,.28)}
+.khh-t>div{color:#E3F3FB}.khh-t .vtma{color:#FFE3C2}
+.khunlock .khu-ico{background:linear-gradient(135deg,#8FD3F2,#2E9FD6);color:#fff}
+.khli.on{background:#E6F4FB;border-color:#A9DBF3}
+.khli.win .khav{background:var(--sky);color:#fff}
+.khl-seg button.on{background:var(--sky);border-color:var(--sky);color:#fff}
+.khlockbox svg{color:var(--sky)}
+.vtbar{background:linear-gradient(115deg,#1E5580,#2E9FD6)!important;box-shadow:0 10px 24px rgba(30,85,128,.18)}
+.vtbar-r .btn{background:#fff;color:#1E5580}
+.vtbar-r .btn.ghost{background:rgba(255,255,255,.16);color:#fff}
+table.vttbl th,table.vtdtbl th{background:#1E5580;border-color:#2A6C9C}
+table.vttbl table.vtinner th{background:#EEF6FB;color:#3B4B58}
+table.vttbl th.lk,.vttot td.lk{background:#E8862F!important;color:#fff}
+.vttot td{background:#1E5580!important}
+.vtten,.vtk b,.vtdet .vtwho b,.vtgt,table.vttbl td.rk{color:#0F3049}
+table.dt tr.tot td,table.mini tr.sum td{background:#EAF6FC;color:#0F3049;border-top-color:#2E9FD6}
 `;
   const st = document.createElement('style'); st.id = 'khProCss'; st.textContent = css; document.head.appendChild(st);
   const sc = document.createElement('script'); sc.src = 'echarts.min.js'; sc.async = true;
