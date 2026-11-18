@@ -1102,6 +1102,32 @@ table.vtinner td.mid{color:#B07A00;font-weight:700}
   padding:1px 6px;border-radius:99px;margin-left:5px}
 .vtwarn{display:inline-block;background:#FDECEC;color:#B4322F;font-size:9px;font-weight:800;
   padding:1px 6px;border-radius:99px;margin-left:5px}
+.vtper[data-vtnv],.vtper[data-vttn]{cursor:pointer}
+table.vtinner tr.vtper:hover td,table.vttbl tr.vtper:hover td{background:#EAF3FD}
+.vtten{font-weight:750;color:#0B2E63}
+.vtxem{display:inline-flex;align-items:center;gap:3px;margin-left:7px;padding:1px 7px;border-radius:99px;background:#E6F1FC;color:#0B5CAD;font-size:9.5px;font-weight:800;white-space:nowrap;vertical-align:middle}
+.vtper:hover .vtxem{background:#0B5CAD;color:#fff}
+.vtdet .vtwho{font-size:14px;margin-bottom:10px}.vtdet .vtwho b{font-size:16px;color:#0B2E63}.vtdet .vtwho small{color:#5B6B82}
+.vtks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.vtk{border:1px solid #DCE6F2;border-radius:10px;padding:8px 10px;background:#F7FAFE;display:flex;flex-direction:column;gap:2px}
+.vtk span{font-size:10px;font-weight:800;color:#5B6B82;text-transform:uppercase;letter-spacing:.3px}
+.vtk b{font-size:18px;color:#0B2E63}.vtk b small{font-size:11px;color:#8A97AC}.vtk>small{font-size:10.5px;color:#5B6B82}
+.vtk.win{background:#FFF8DC;border-color:#F2D46B}.vtk.win b{color:#8A5A00}.vtk.warn{background:#FDECEC;border-color:#F3B9B7}
+table.vtdtbl{width:100%;border-collapse:collapse;font-size:11.5px;background:#fff}
+table.vtdtbl th{background:#0B2E63;color:#fff;font-size:9.5px;padding:5px 4px;border:1px solid #23497F;position:static}
+table.vtdtbl td{padding:5px 5px;border:1px solid #E6EDF6;text-align:center;font-variant-numeric:tabular-nums}
+table.vtdtbl td.l{text-align:left;white-space:nowrap}table.vtdtbl td.r{text-align:right}
+table.vtdtbl td.vtd.ok{background:#E8F8EE;color:#00874A;font-weight:800}table.vtdtbl td.vtd.no{background:#FDF0F0;color:#B4322F;font-weight:800}
+table.vtdtbl td.vtsum b{font-size:13px}table.vtdtbl tr.win td{background:#FFFCEF}
+table.vtdtbl tr.vtnone td{color:#8A97AC;font-style:italic}table.vtdtbl tr.vtlkrow td{background:#E3ECF8;color:#0B2E63;font-weight:700;border-top:2px solid #0B2E63}
+table.vtdtbl td.vtcell{line-height:1.2}table.vtdtbl td.vtcell b{display:block;font-size:13px}
+table.vtdtbl td.vtcell small{display:block;font-size:9px;color:#5B6B82;white-space:nowrap}
+table.vtdtbl td.vtcell.ok{background:#E8F8EE}table.vtdtbl td.vtcell.ok b{color:#00874A}
+table.vtdtbl td.vtcell.no{background:#FDF0F0}table.vtdtbl td.vtcell.no b{color:#B4322F}
+table.vtdtbl td.lk{background:#FFF8DC;font-weight:800}
+.vtok{display:inline-block;background:#FFF3C4;color:#7A5C00;font-weight:800;font-size:10px;padding:1px 7px;border-radius:99px;white-space:nowrap}
+.vtno{color:#8A97AC}.vtchua{color:#B4322F;font-size:9px;font-weight:700}
+.vtdnote{margin-top:10px;font-size:11px;color:#5B6B82;line-height:1.5}
 .vtgrp{margin-bottom:14px}
 .vtgt{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;color:#0B2E63;
   margin-bottom:7px;letter-spacing:.3px}
@@ -7302,13 +7328,15 @@ function xoApTargetBase(key){
    · 2 nút xuất: Danh sách Vượt Trội (Excel 3 sheet) và Data nguồn
    ========================================================================== */
 let VT = null, VT_ERR = null;
-const VT_OPEN = {};                         /* kho nào đang mở danh sách */
+const VT_OPEN = { VDH_KHH: true };          /* kho nào đang mở danh sách — Khánh Hòa mở sẵn */
 
 fetch('vuottroi.json?v=' + Date.now()).then(r => r.json()).then(j => {
   VT = j; if (ST.tab === 9) render();
 }).catch(e => { VT_ERR = e.message; if (ST.tab === 9) render(); });
 
-const vtMonths = (S = ST) => selMonths(S).filter(m => (VT.meta.thang || []).indexOf(m) >= 0);
+/* kỳ đang chọn chưa có điểm Vượt Trội (vd đang xem T11) -> hiện đủ các tháng đã chấm thay vì bảng không có cột tháng */
+const vtMonths = (S = ST) => { const a = selMonths(S).filter(m => (VT.meta.thang || []).indexOf(m) >= 0);
+  return a.length ? a : (VT.meta.thang || []).slice(); };
 const vtNhomOK = (nhom, S = ST) => nhom === 'kho' ? showKho(S) : showNha(S);
 /* mã kho gốc: "VTB_DNA_TK" (kho tại kho) -> "VTB_DNA" để khớp bộ lọc chung của web */
 const vtBase = ma => String(ma || '').replace(/_TK$/, '');
@@ -7365,7 +7393,10 @@ function vtNote(S) {
   if (['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'].indexOf(S.ky) >= 0)
     t.push('Vượt Trội chỉ chấm theo <b>THÁNG</b> — đang hiển thị kết quả cả tháng của kỳ đang chọn.');
   // nhãn tháng chốt: lấy tháng CUỐI trong meta.thang (trước ghi cứng "Tháng 8")
+  if (!selMonths(S).some(m => (VT.meta.thang || []).indexOf(m) >= 0))
+    t.push(`Kỳ đang chọn chưa có điểm Vượt Trội — đang hiển thị <b>T1–T${Math.max(...(VT.meta.thang || [0]))}</b>.`);
   t.push(`Tháng ${Math.max(...(VT.meta.thang || [0]))} chốt data tới <b>${esc(VT.meta.chotT8)}</b>.`);
+  t.push('Bấm vào <b>tên từng người</b> để xem chi tiết điểm từng tháng.');
   return `<div class="lblbar">${ic('info', 14)} ${t.join(' ')}</div>`;
 }
 
@@ -7404,7 +7435,7 @@ function vtBangKho(khos, ms, S) {
 
   return `<section class="card vtcard"><header class="hd">
       <div><h3>${ic('map', 15)} KẾT QUẢ VƯỢT TRỘI THEO KHO</h3>
-      <span class="sub">Bấm vào tên kho để xem danh sách từng người · ô hiển thị <b>số người đạt / số người có dữ liệu</b></span></div></header>
+      <span class="sub">Bấm vào tên kho để mở / đóng danh sách · <b>bấm vào tên từng người để xem chi tiết Vượt Trội từng tháng</b> · ô hiển thị <b>số người đạt / số người có dữ liệu</b></span></div></header>
     <div class="body"><div class="tblwrap"><table class="dt vttbl">
       <thead>${head}</thead><tbody>${body}
       <tr class="vttot"><td class="l"><b>TỔNG</b></td><td></td><td><b>${tot}</b></td>${totM}
@@ -7424,9 +7455,9 @@ function vtDanhSach(mem, ms, k) {
     }).join('');
     const lk = isKho ? `#${p.hang}` : `${p.diem}<small> · #${p.hang}</small>`;
     const warn = !p.duDK ? `<span class="vtwarn" title="Chưa đủ 5 tháng có dữ liệu">${p.soThang}/${(VT.meta.thang || []).length} th</span>` : '';
-    return `<tr class="vtper ${p.vt ? 'win' : ''}">
-      <td class="l"><span class="vtma">${esc(p.ma)}</span> ${esc(p.ten)} ${warn}
-        ${p.chot6t ? '<span class="vtchip">đạt 6T</span>' : ''}</td>
+    return `<tr class="vtper ${p.vt ? 'win' : ''}" data-vtnv="${esc(p.ma)}" title="Bấm để xem chi tiết Vượt Trội từng tháng">
+      <td class="l"><span class="vtma">${esc(p.ma)}</span> <b class="vtten">${esc(p.ten)}</b> ${warn}
+        ${p.chot6t ? '<span class="vtchip">đạt 6T</span>' : ''}<span class="vtxem">${ic('eye', 11)} Chi tiết</span></td>
       <td class="vtcv">${esc(p.cv)}</td><td class="vttn">${vtTien(p.tn)}</td>
       ${cells}<td class="lk">${lk} ${p.vt ? '🏆' : ''}</td></tr>`;
   }).join('');
@@ -7448,10 +7479,10 @@ function vtBangTN(S, ms) {
   const secs = grp.map(v => {
     const gTen = v === 'VTB' ? 'VÙNG TRUNG BỘ' : 'VÙNG DUYÊN HẢI';
     const g = list.filter(t => t.vung === v).sort((a, b) => a.hang - b.hang);
-    const rows = g.map(t => `<tr class="${t.hang <= 1 ? 'win' : ''}">
+    const rows = g.map(t => `<tr class="vtper ${t.hang <= 1 ? 'win' : ''}" data-vttn="${esc(t.ma)}" title="Bấm để xem chi tiết từng tiêu chí, từng tháng">
       <td class="rk">${t.hang === 1 ? '🥇' : t.hang === 2 ? '🥈' : t.hang === 3 ? '🥉' : t.hang}</td>
       <td class="l"><span class="vtma">${esc(t.ma)}</span> <b>${esc(t.ten)}</b>
-        <small>· ${esc(t.tinh)} · ${esc(t.cv)}${(t.tuThang || 1) > 1 ? ' (từ T' + t.tuThang + ')' : ''}${t.pbTaiKho ? ' · PB Tại Kho' : ''}</small></td>
+        <small>· ${esc(t.tinh)} · ${esc(t.cv)}${(t.tuThang || 1) > 1 ? ' (từ T' + t.tuThang + ')' : ''}${t.pbTaiKho ? ' · PB Tại Kho' : ''}</small><span class="vtxem">${ic('eye', 11)} Chi tiết</span></td>
       ${keys.map(c => `<td>${t.diemLK[c] || 0}</td>`).join('')}
       ${ms.map(m => { const d = t.thang[String(m)];
         return `<td class="${d && d.hang === 1 ? 'ok' : ''}">${d ? d.tong : '—'}</td>`; }).join('')}
@@ -7465,7 +7496,7 @@ function vtBangTN(S, ms) {
   }).join('');
   return `<section class="card vtcard"><header class="hd">
       <div><h3>${ic('user', 15)} XẾP HẠNG TRƯỞNG NHÓM / QLDV / TRƯỞNG CA</h3>
-      <span class="sub">${keys.length} tiêu chí · xếp hạng riêng từng vùng theo <b>điểm LŨY KẾ, cao → thấp (cột ★)</b> · Trưởng ca là chức vụ mới, chỉ đánh giá từ T${VT.meta.truongCaTu || HT} nên lũy kế thấp hơn và nằm cuối bảng · tiêu chí là cấp kho nên cùng kho thì bằng điểm từng tháng</span></div></header>
+      <span class="sub"><b>Bấm vào tên để xem chi tiết từng tiêu chí, từng tháng</b> · ${keys.length} tiêu chí · xếp hạng riêng từng vùng theo <b>điểm LŨY KẾ, cao → thấp (cột ★)</b> · Trưởng ca là chức vụ mới, chỉ đánh giá từ T${VT.meta.truongCaTu || HT} nên lũy kế thấp hơn và nằm cuối bảng · tiêu chí là cấp kho nên cùng kho thì bằng điểm từng tháng</span></div></header>
     <div class="body">${secs}</div></section>`;
 }
 
@@ -7486,11 +7517,120 @@ function vtGhiChu() {
 
 /* ── sự kiện: mở/đóng danh sách + 2 nút xuất ────────────────────────────── */
 document.addEventListener('click', e => {
+  const nv = e.target.closest('[data-vtnv]');
+  if (nv && VT) { vtChiTietNV(nv.dataset.vtnv); return; }
+  const tn = e.target.closest('[data-vttn]');
+  if (tn && VT) { vtChiTietTN(tn.dataset.vttn); return; }
   const r = e.target.closest('[data-vtkho]');
   if (r && ST.tab === 9) { const k = r.dataset.vtkho; VT_OPEN[k] = !VT_OPEN[k]; render(); return; }
   if (e.target.closest('#vtXuatDS')) { vtXuatDanhSach(); return; }
   if (e.target.closest('#vtXuatData')) { vtXuatData(); return; }
 });
+
+/* ── CHI TIẾT 1 NGƯỜI (bảng bật lên) ────────────────────────────────────────
+   Số lấy NGUYÊN từ vuottroi.json (cùng bộ số với file Excel VƯỢT TRỘI). Điểm
+   từng tiêu chí = 2đ nếu đạt; tháng điểm tháng = 0 (chưa phát sinh / chưa làm)
+   thì 3 tiêu chí đều 0đ như file Excel.                                       */
+const vtSo = (v, d = 2) => v == null ? '—' : Number(v).toLocaleString('vi-VN', { maximumFractionDigits: d });
+const vtPt = (v, d = 2) => v == null ? '—' : (Number(v) * 100).toLocaleString('vi-VN', { maximumFractionDigits: d }) + '%';
+function vtDiemTC(d) {
+  if (!d || !d.d) return { kn: 0, tc: 0, xl: 0 };
+  return { kn: d.kn === 0 ? 2 : 0, tc: (d.tc != null && d.tb != null && d.tc >= d.tb) ? 2 : 0, xl: d.xl === 0 ? 2 : 0 };
+}
+function vtKe(list, ma, attr) {
+  const i = list.findIndex(x => x.ma === ma), a = list[i - 1], b = list[i + 1];
+  return (a ? `<button class="btn" ${attr}="${esc(a.ma)}">‹ ${esc(a.ten)}</button>` : '')
+       + (b ? `<button class="btn" ${attr}="${esc(b.ma)}">${esc(b.ten)} ›</button>` : '')
+       + '<button class="btn pri" data-close>Đóng</button>';
+}
+function vtThe(nhan, gt, phu, cls) {
+  return `<div class="vtk ${cls || ''}"><span>${nhan}</span><b>${gt}</b>${phu ? `<small>${phu}</small>` : ''}</div>`;
+}
+function vtChiTietNV(ma) {
+  const p = VT.nguoi.find(x => x.ma === ma); if (!p) return;
+  const k = VT.kho[p.kho] || {}, TH = VT.meta.thang || [], C = VT.meta.critNV, isKho = p.nhom === 'kho';
+  const dsKho = VT.nguoi.filter(x => x.kho === p.kho);
+  const lk = { kn: 0, tc: 0, xl: 0 }; let dLK = 0, vtT = 0;
+  const rows = TH.map(m => {
+    const d = p.thang[String(m)], n = ((k.thang || {})[String(m)] || {}).n;
+    if (!d) return `<tr class="vtnone"><td class="l"><b>T${m}</b></td><td colspan="${isKho ? 3 : 13}">Không có dữ liệu tháng này</td></tr>`;
+    if (d.vt) vtT++; dLK += d.d || 0;
+    const vtc = d.vt ? '<span class="vtok">🏆 VƯỢT TRỘI</span>' : '<span class="vtno">—</span>';
+    if (isKho) return `<tr><td class="l"><b>T${m}</b></td><td>${vtTien(d.tn)}</td><td>#${d.h || '—'}${n ? '/' + n : ''}</td><td>${vtc}</td></tr>`;
+    const g = vtDiemTC(d); lk.kn += g.kn; lk.tc += g.tc; lk.xl += g.xl;
+    const o = x => `<td class="vtd ${x ? 'ok' : 'no'}">${x}</td>`;
+    const chua = !d.d && d.tn == null ? ' <small class="vtchua">chưa phát sinh</small>' : '';
+    return `<tr class="${d.vt ? 'win' : ''}"><td class="l"><b>T${m}</b>${chua}</td>
+      <td>0</td><td>${vtSo(d.kn, 0)}</td>${o(g.kn)}
+      <td>${vtPt(d.tb)}</td><td>${vtPt(d.tc)}</td>${o(g.tc)}
+      <td>0</td><td>${vtSo(d.xl, 0)}</td>${o(g.xl)}
+      <td class="vtsum"><b>${d.d}</b><small>/6</small></td><td>#${d.h || '—'}${n ? '<small>/' + n + '</small>' : ''}</td>
+      <td class="r">${vtTien(d.tn)}</td><td>${vtc}</td></tr>`;
+  }).join('');
+  const maxD = TH.length * 6;
+  const the = [
+    vtThe('Kết quả lũy kế T1–T' + Math.max(...TH), p.vt ? '🏆 VƯỢT TRỘI' : 'Chưa đạt', p.chot6t ? 'đã đạt kỳ 6 tháng đầu năm' : '', p.vt ? 'win' : ''),
+    isKho ? '' : vtThe('Điểm lũy kế', `${p.diem}<small>/${maxD}</small>`, `Khiếu nại ${lk.kn} · Tiếp cận ${lk.tc} · XLĐ1L ${lk.xl}`),
+    vtThe('Hạng trong kho', `#${p.hang}<small>/${dsKho.length}</small>`, 'quota Vượt Trội 30% = ' + (k.quota != null ? k.quota : '—') + ' người/tháng'),
+    vtThe('Thu nhập lũy kế', vtTien(p.tn), 'đồng'),
+    vtThe('Số tháng có dữ liệu', `${p.soThang}<small>/${TH.length}</small>`, p.duDK ? 'đủ điều kiện (≥ 5 tháng)' : '⚠ chưa đủ 5 tháng', p.duDK ? '' : 'warn'),
+    vtThe('Số tháng đạt Vượt Trội', `${vtT}<small>/${TH.length}</small>`, 'tháng có 🏆')
+  ].join('');
+  const head = isKho
+    ? '<tr><th class="l">THÁNG</th><th>THU NHẬP</th><th>XẾP HẠNG</th><th>VƯỢT TRỘI</th></tr>'
+    : `<tr><th class="l" rowspan="2">THÁNG</th>
+        <th colspan="3">1. ${esc(C.kn)}</th><th colspan="3">2. ${esc(C.tc)}</th><th colspan="3">3. ${esc(C.xl)}</th>
+        <th rowspan="2">ĐIỂM<br>THÁNG</th><th rowspan="2">XẾP HẠNG<br><small>trong kho</small></th><th rowspan="2">THU NHẬP</th><th rowspan="2">VƯỢT TRỘI</th></tr>
+      <tr><th>KPI</th><th>KẾT QUẢ</th><th>ĐIỂM</th><th>TB KHO</th><th>KẾT QUẢ</th><th>ĐIỂM</th><th>KPI</th><th>KẾT QUẢ</th><th>ĐIỂM</th></tr>`;
+  const foot = isKho ? '' : `<tr class="vtlkrow"><td class="l"><b>LŨY KẾ</b></td><td colspan="2"></td><td class="vtd"><b>${lk.kn}</b></td>
+      <td colspan="2"></td><td class="vtd"><b>${lk.tc}</b></td><td colspan="2"></td><td class="vtd"><b>${lk.xl}</b></td>
+      <td class="vtsum"><b>${p.diem}</b><small>/${maxD}</small></td><td><b>#${p.hang}</b></td><td class="r"><b>${vtTien(p.tn)}</b></td>
+      <td>${p.vt ? '<span class="vtok">🏆 VƯỢT TRỘI</span>' : '<span class="vtno">Chưa đạt</span>'}</td></tr>`;
+  const body = `<div class="vtdet">
+    <div class="vtwho"><span class="vtma">${esc(p.ma)}</span> <b>${esc(p.ten)}</b>
+      <small>· ${esc(p.cv)} · ${esc(p.tinh)} (${esc(p.kho)}) · ${isKho ? 'Bảo hành tại kho' : 'Bảo hành sửa chữa tại nhà'}</small></div>
+    <div class="vtks">${the}</div>
+    <div class="tblwrap"><table class="dt vtdtbl"><thead>${head}</thead><tbody>${rows}${foot}</tbody></table></div>
+    <p class="vtdnote">${isKho ? 'Nhân viên tại kho xét TOP 30% thu nhập cao nhất kho.'
+      : 'Mỗi tiêu chí đạt = 2 điểm, tối đa 6 điểm/tháng. Tiếp cận đạt khi KẾT QUẢ ≥ TB KHO. Đủ 6/6 điểm và nằm trong quota 30% của kho thì tháng đó đạt Vượt Trội.'}
+      ${p.chot6t ? ' Người đã đạt kỳ 6 tháng được giữ nguyên số điểm T1–T6 đã duyệt.' : ''}
+      Xếp hạng lũy kế theo tổng điểm, bằng điểm thì xét thu nhập.</p></div>`;
+  openModal('CHI TIẾT VƯỢT TRỘI · ' + p.ten, 'trophy', body, vtKe(dsKho, ma, 'data-vtnv'));
+}
+function vtFmtTN(c, v) {
+  if (v == null) return '—';
+  if (c === 'scdv') return vtSo(v / 1e6, 1) + ' tr';
+  if (c === '5sao' || c === 'tho5s') return vtSo(v, 2);
+  return vtPt(v, 2);
+}
+function vtChiTietTN(ma) {
+  const t = VT.tn.find(x => x.ma === ma); if (!t) return;
+  const CT = VT.meta.critTN, keys = Object.keys(CT), TH = VT.meta.thang || [];
+  const ds = VT.tn.filter(x => x.vung === t.vung).sort((a, b) => a.hang - b.hang);
+  const rows = keys.map(c => `<tr><td class="l"><b>${esc(CT[c])}</b></td>${TH.map(m => {
+      const d = (t.thang[String(m)] || {}).tc; const x = d && d[c];
+      if (!x) return '<td class="vtx">—</td>';
+      return `<td class="vtcell ${x.d ? 'ok' : 'no'}"><b>${x.d}</b><small>KQ ${vtFmtTN(c, x.kq)}</small><small>KPI ${vtFmtTN(c, x.kpi)}</small></td>`;
+    }).join('')}<td class="lk"><b>${t.diemLK[c] || 0}</b></td></tr>`).join('');
+  const tong = `<tr class="vtlkrow"><td class="l"><b>TỔNG ĐIỂM THÁNG</b></td>${TH.map(m => { const d = t.thang[String(m)];
+      return `<td><b>${d ? d.tong : '—'}</b></td>`; }).join('')}<td class="lk"><b>${t.tong}</b></td></tr>
+    <tr class="vtlkrow"><td class="l"><b>HẠNG THÁNG</b> <small>(trong vùng)</small></td>${TH.map(m => { const d = t.thang[String(m)];
+      return `<td>${d && d.hang ? '#' + d.hang : '—'}</td>`; }).join('')}<td class="lk"><b>#${t.hang}</b></td></tr>`;
+  const the = [
+    vtThe('Hạng lũy kế ' + (t.vung === 'VTB' ? 'Vùng Trung Bộ' : 'Vùng Duyên Hải'), `#${t.hang}<small>/${ds.length}</small>`, t.hang === 1 ? '🥇 đứng đầu vùng' : '', t.hang === 1 ? 'win' : ''),
+    vtThe('Tổng điểm lũy kế', String(t.tong), 'T1–T' + Math.max(...TH)),
+    vtThe('Đánh giá từ', 'T' + (t.tuThang || 1), (t.tuThang || 1) > 1 ? 'chức vụ mới' : 'đủ cả năm'),
+    vtThe('Số tiêu chí', String(keys.length), 'Phục vụ 5 Sao 4đ · còn lại 2đ')
+  ].join('');
+  const body = `<div class="vtdet">
+    <div class="vtwho"><span class="vtma">${esc(t.ma)}</span> <b>${esc(t.ten)}</b>
+      <small>· ${esc(t.cv)} · ${esc(t.tinh)} (${esc(t.kho)})${t.pbTaiKho ? ' · PB Tại Kho' : ''}</small></div>
+    <div class="vtks">${the}</div>
+    <div class="tblwrap"><table class="dt vtdtbl vttn"><thead><tr><th class="l">TIÊU CHÍ</th>${TH.map(m => `<th>T${m}</th>`).join('')}<th class="lk">LŨY KẾ</th></tr></thead>
+      <tbody>${rows}${tong}</tbody></table></div>
+    <p class="vtdnote">Mỗi ô: số to = <b>ĐIỂM</b> tháng đó · KQ = kết quả thực tế · KPI = mốc cần đạt. Sửa chữa khách lẻ tính theo doanh thu (triệu đồng), 4đ từ Tháng 7; CL 1 Đổi 1 và CL BH Trọn Đời xét từ Tháng 9.</p></div>`;
+  openModal('CHI TIẾT VƯỢT TRỘI · ' + t.ten, 'trophy', body, vtKe(ds, ma, 'data-vttn'));
+}
 
 /* ── 2 nút xuất: tải file đã dựng sẵn trong repo ────────────────────────────
    Cố ý KHÔNG dựng Excel bằng JS trong trình duyệt: file dựng sẵn bởi pipeline
