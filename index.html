@@ -9133,107 +9133,28 @@ function khpSlSL(S) {
   return { id: 'kh-sl', kh: true, title, parts };
 }
 
-/* ---------- 4 · VƯỢT TRỘI NHÂN VIÊN ---------- */
-function khpSlVT(S) {
-  if (typeof VT === 'undefined' || !VT || !VT.nguoi || !VT.nguoi.length || !showNha(S)) return null;
-  const kho = Object.values(VT.kho || {}).filter(k => k.nhom !== 'kho' && (S.kho === 'ALL' || String(k.ma).replace(/_TK$/, '') === S.kho));
-  if (!kho.length) return null;
-  const maSet = {}; kho.forEach(k => { maSet[k.ma] = 1; });
-  const ng = VT.nguoi.filter(p => maSet[p.kho] && p.nhom !== 'kho');
-  if (!ng.length) return null;
-  const ms = (VT.meta.thang || []).slice().sort((a, b) => a - b), last = ms[ms.length - 1], maxD = ms.length * 6;
-  const vDat = ng.filter(p => p.vt).length, c6 = ng.filter(p => p.chot6t).length;
-  const sumT = (m, f) => kho.reduce((a, k) => a + (((k.thang || {})[String(m)] || {})[f] || 0), 0);
-  const lastVt = sumT(last, 'vt'), lastN = sumT(last, 'n');
-  const diemTB = ng.reduce((a, p) => a + (p.diem || 0), 0) / ng.length;
-  const M0 = KHP_M, cw = (KHP_CW - 3 * 0.15) / 4;
-  const parts = [{ k: 'sec', x: M0, y: 1.13, w: KHP_CW, t: `5 · VƯỢT TRỘI NHÂN VIÊN · lũy kế T${ms[0]}–T${last}/${VT.meta.nam}` }];
-  [{ l: 'Đạt Vượt Trội lũy kế', v: `${vDat}/${ng.length}`, s: `Tỷ lệ ${pc1(vDat / ng.length)}`, c: 'good' },
-   { l: 'Đã đạt kỳ 6 tháng', v: String(c6), s: 'Vượt Trội kỳ T1–T6 đã chốt', c: 'none' },
-   { l: `Tháng gần nhất (T${last})`, v: `${lastVt}/${lastN}`, s: 'nhân viên đạt trong tháng', c: 'none' },
-   { l: 'Điểm bình quân lũy kế', v: fx(diemTB, 1), s: `trên ${maxD} điểm tối đa`, c: 'none' }]
-    .forEach((c, i) => parts.push(Object.assign({ k: 'card', x: M0 + i * (cw + 0.15), y: 1.48, w: cw, h: 0.98 }, c)));
-  parts.push({ k: 'chart', x: M0, y: 2.66, w: 5.7, h: 3.76, title: 'Số nhân viên đạt Vượt Trội theo tháng', labels: ms.map(m => 'T' + m),
-    bar: { name: 'Đạt Vượt Trội', vals: ms.map(m => sumT(m, 'vt')) }, line: { name: 'Số NV xét', vals: ms.map(m => sumT(m, 'n')) }, lbl: true });
-  const top = ng.slice().sort((a, b) => (a.hang || 99) - (b.hang || 99) || (b.diem || 0) - (a.diem || 0)).slice(0, 10);
-  parts.push({ k: 'sec', x: 6.33, y: 2.66, w: 6.55, t: 'Top 10 điểm lũy kế', sm: true });
-  parts.push({ k: 'table', x: 6.33, y: 2.98, w: 6.55, cols: [0.8, 2.85, 1.3, 1.6], head: ['Hạng', 'Nhân viên', 'Điểm', 'Danh hiệu'], hH: 0.34, rH: 0.3, fs: 11, hfs: 10.5,
-    rows: top.map(p => ['#' + (p.hang || '–'), { t: p.ten, l: true, b: true }, `${p.diem}/${maxD}`,
-      p.vt ? { t: 'VƯỢT TRỘI' + (p.chot6t ? ' · kỳ 6T' : ''), c: 'good', b: true } : { t: 'Chưa đạt', c: 'mut' }]) });
-  const title = `Vượt Trội: ${vDat}/${ng.length} nhân viên đạt lũy kế (${pc1(vDat / ng.length)}) · ${c6} người đã đạt kỳ 6 tháng`;
-  return { id: 'kh-vt', kh: true, title, parts };
+/* ---------- 1 · BÌA (giữ nội dung bìa cũ, đổi sang nền sáng) · 4 · LỜI CẢM ƠN ----------
+   18/11/2026 (2): anh Thu chốt bỏ slide Vượt Trội + Công việc cần làm (phần hành động anh tự làm thêm),
+   bìa nền nhạt, thêm slide cảm ơn. Bộ còn 4 slide.                                                        */
+function khpCover(S, goc) {
+  return Object.assign({}, goc, { kh: true, kind: 'khcover', title: goc.title || 'Bìa báo cáo', foot0: goc.foot });
 }
-
-/* ---------- 5 · CÔNG VIỆC CẦN LÀM (việc ưu tiên theo kết quả + lịch tuần) ---------- */
-function khpViecUuTien(S) {
-  const lk = khpLK(S), con = lk ? Math.max(1, lk.ngayTrongThang - lk.ngayDaQua) : 0;
-  const P = [];
-  (showNha(S) ? calcClNha(S).concat(calcClGoi(S)) : []).forEach(k => {
-    if (k && k.actual != null && k.status !== 'good' && k.target != null)
-      P.push({ w: 0, ten: khpTen(k.name), l: `Khắc phục ${khpTen(k.name)}`, v: `${k.fmt(k.actual)} / KPI ${k.fmt(k.target)}`,
-        s: 'Chưa đạt KPI chất lượng — xử lý ngay trong tuần', c: 'bad' });
-  });
-  khpDt(S).rows.forEach(r => {
-    const b = r.b, v = r.v;
-    if (b.target != null && b.rate != null && b.status !== 'good') {
-      const gap = Math.max(0, b.target - (b.actual || 0));
-      P.push({ w: 1, gap, ten: r.ten, cat: r.cat, l: `${r.ten} — chưa đạt Target Base`, v: `${lk ? 'cần thêm' : 'thiếu'} ${khpTr(gap)} tr`, c: 'bad',
-        s: lk ? `Dự kiến ${khpTr(duKienOf(b))} / Base ${khpTr(b.target)} (${khpPc(b.rate)}) · ≈ ${khpTr(gap / con)} tr/ngày, còn ${con} ngày`
-          : `Thực đạt ${khpTr(b.actual)} / Base ${khpTr(b.target)} (${khpPc(b.rate)})` });
-    } else if (v && v.target != null && v.rate != null && v.rate < 1) {
-      const gap = Math.max(0, v.target - (v.actual || 0));
-      P.push({ w: 2, gap, ten: r.ten, cat: r.cat, l: `${r.ten} — ${lk ? 'đẩy lên' : 'chưa đạt'} Vượt Trội`, v: `${lk ? 'cần thêm' : 'thiếu'} ${khpTr(gap)} tr`, c: 'warn',
-        s: `Đã đạt Base (${khpPc(b.rate)}) · Vượt trội ${khpPc(v.rate)} · target ${khpTr(v.target)} tr` });
-    }
-  });
-  P.sort((a, b) => a.w - b.w || (b.gap || 0) - (a.gap || 0));
-  return { P, con };
+function khpCamOn(S) {
+  return { id: 'kh-camon', kh: true, kind: 'khthanks', title: 'Trân trọng cảm ơn',
+    h1: 'TRÂN TRỌNG CẢM ƠN!',
+    h2: 'Gửi Ban lãnh đạo và đồng đội BHSC CE Khánh Hòa',
+    p: 'Cảm ơn sự tin tưởng, định hướng của Ban lãnh đạo và sự bền bỉ của từng kỹ thuật viên — những người mỗi ngày mang dịch vụ tận tâm đến từng gia đình Khánh Hòa.',
+    q: '“Mỗi lần sửa xong là một lần\ngiữ trọn niềm tin của khách hàng.”',
+    c: `Cùng nhau giữ vững chất lượng, bứt phá doanh thu —\nvề đích Vượt Trội ${S.nam}!`,
+    k: 'Thợ Điện Máy Xanh · BHSC CE tại nhà – Khánh Hòa' };
 }
-/* lịch tuần của web vùng chỉ xếp việc theo TỈNH chưa đạt; web Khánh Hòa chỉ có 1 tỉnh nên các ngày "dự phòng"
-   được gắn đúng việc ưu tiên rút ra từ kết quả (luân phiên việc 1, 2, 3). Ngày đã có việc theo tỉnh thì giữ nguyên. */
-function khpLich(vp, top, lk, con) {
-  if (!top.length) return vp.rows;
-  const NGAN = { 'BH 1 đổi 1': 'gói 1 đổi 1', 'BHMR': 'BHMR', 'SCDV': 'khách lẻ', 'Bảo hành tại nhà': 'BH tại nhà' };
-  const muc = p => p.w === 1 ? 'lên Target Base' : 'lên Vượt Trội';
-  const VIEC = p => p.w === 0 ? `Khắc phục ${p.ten}: rà soát ca chưa đạt`
-    : (p.cat === 'BH 1 đổi 1' || p.cat === 'BHMR') ? `Đi siêu thị đẩy bán gói ${p.cat === 'BHMR' ? 'BHMR' : '1 đổi 1'} (${muc(p)})`
-    : p.cat === 'SCDV' ? `Đẩy sửa chữa khách lẻ (${muc(p)})` : `Bám đơn BH tại nhà (${muc(p)})`;
-  const KQ = p => p.w === 0 ? `${p.ten} đạt KPI` : lk ? `+≈ ${khpTr(p.gap / con)} tr/ngày ${NGAN[p.cat] || p.ten}` : `Bù ${khpTr(p.gap)} tr ${NGAN[p.cat] || p.ten}`;
-  let j = 0;
-  return vp.rows.map(r => { if (r.uu) return r; const p = top[j++ % top.length];
-    return Object.assign({}, r, { noi: r.noi === '—' ? 'Khánh Hòa' : r.noi, viec: VIEC(p), kq: KQ(p) }); });
-}
-function khpSlViec(S) {
-  const M0 = KHP_M, vp = visitPlan(S), lk = khpLK(S);
-  const { P, con } = khpViecUuTien(S);
-  const top = P.slice(0, 3);
-  const parts = [{ k: 'sec', x: M0, y: 1.13, w: KHP_CW, t: '6 · VIỆC CẦN LÀM THEO KẾT QUẢ' }];
-  const items = top.length ? top : [{ l: 'Giữ vững kết quả', v: 'Tất cả chỉ tiêu ĐẠT', s: 'Duy trì chất lượng & nhịp doanh thu đến cuối kỳ', c: 'good' }];
-  const cw = (KHP_CW - (items.length - 1) * 0.15) / items.length;
-  items.forEach((c, i) => parts.push({ k: 'card', x: M0 + i * (cw + 0.15), y: 1.48, w: cw, h: 1.2, task: true,
-    l: `${i + 1}. ${c.l}`, v: c.v, s: c.s, c: c.c }));
-  const d0 = vp.days[0], d4 = vp.days[vp.days.length - 1];
-  parts.push({ k: 'sec', x: M0, y: 2.86, w: KHP_CW, t: `7 · LỊCH CÔNG VIỆC TUẦN (${dm(d0)} – ${dm(d4)})` });
-  parts.push({ k: 'table', x: M0, y: 3.2, w: KHP_CW, cols: [1.2, 1.45, 1.35, 3.9, 1.2, 3.33],
-    head: ['Ngày', 'Địa điểm', 'Khung giờ', 'Công việc', 'Thành phần', 'Kết quả cần đạt'], hH: 0.36, rH: 0.36, fs: 11, hfs: 10.5,
-    rows: khpLich(vp, top, lk, con).map(r => [r.ngay, r.noi, r.gio, { t: r.viec, l: true }, r.tp, { t: r.kq, l: true }]) });
-  const yNote = 3.2 + 0.36 + vp.rows.length * 0.36 + 0.18;
-  const hd = top.length
-    ? top.map(p => p.w === 0 ? `khắc phục ${p.ten} (${p.v})` : p.w === 1 ? `kéo ${p.ten} lên Target Base (${p.v.replace(/^(cần thêm|thiếu) /, lk ? 'thêm ' : 'thiếu ')}${lk ? `, ≈ ${khpTr(p.gap / con)} tr/ngày` : ''})`
-      : `đẩy ${p.ten} lên Vượt Trội (${p.v.replace(/^(cần thêm|thiếu) /, lk ? 'thêm ' : 'thiếu ')})`).join('; ')
-    : 'giữ vững toàn bộ chỉ tiêu chất lượng và doanh thu đến cuối kỳ';
-  parts.push({ k: 'note', x: M0, y: Math.min(yNote, 5.62), w: KHP_CW, h: 0.8, lead: 'Hành động:',
-    t: `${hd.charAt(0).toUpperCase() + hd.slice(1)}. Thứ tự ưu tiên: chất lượng → phát triển bên ngoài → chi phí.` });
-  const title = `Công việc tuần ${dm(d0)} – ${dm(d4)} · ` + (top.length ? 'ưu tiên ' + top.map(p => p.ten).filter((t, i, a) => a.indexOf(t) === i).join(', ') : 'giữ vững kết quả');
-  return { id: 'kh-viec', kh: true, title, parts };
-}
-
 /* ---------- mô hình slide của web Khánh Hòa (ghi đè bản gốc, bản gốc đổi tên slideModelGoc) ---------- */
 function slideModel(S) {
   const G = slideModelGoc(S);
-  const SL = [G.find(x => x.id === 'bia') || G[0]];
+  const bia = G.find(x => x.id === 'bia') || G[0];
+  const SL = [khpCover(S, bia)];
   const tao = (fn, ten) => { try { const s = fn(S); if (s) SL.push(s); } catch (e) { console.warn('[ppt ' + ten + ']', e); } };
-  tao(khpSlKQ, 'chất lượng & doanh thu'); tao(khpSlSL, 'sản lượng'); tao(khpSlVT, 'vượt trội'); tao(khpSlViec, 'công việc');
+  tao(khpSlKQ, 'chất lượng & doanh thu'); tao(khpSlSL, 'sản lượng'); tao(khpCamOn, 'cảm ơn');
   SL.forEach((s, i) => { s.n = i + 1; if (s.kh) { s.foot = khpFooter(S); s.sub = s.sub || ''; } });
   return SL;
 }
@@ -9278,9 +9199,71 @@ function khpChartSVG(o) {
   if (o.line) g += `<line x1="${W / 2 + 10}" x2="${W / 2 + 34}" y1="${ly - 3}" y2="${ly - 3}" class="ln"/><text x="${W / 2 + 40}" y="${ly + 2}" class="lg">${esc(o.line.name)}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(o.title)}">${g}</svg>`;
 }
+/* bìa + cảm ơn: nền sáng, vòng tròn xanh nhạt sau ảnh kỹ thuật viên (dùng chung HTML + PPTX) */
+const KHP_LIGHT = 'F3F7FC', KHP_BLUE = '00A0E2';
+/* ảnh kỹ thuật viên gốc có vài chấm lẻ (sót từ nền sóng chấm) — trên nền sáng sẽ lộ ra.
+   Làm sạch 1 lần trong trình duyệt: giữ mảng hình lớn nhất (người), xoá các mảng nhỏ tách rời. */
+let KHP_TECH = null;
+function khpTechClean() {
+  const A = (typeof DECK_ASSETS !== 'undefined') ? DECK_ASSETS : null; if (!A || !A.tech || KHP_TECH) return;
+  const im = new Image();
+  im.onload = () => { try {
+    const w = im.naturalWidth, h = im.naturalHeight, cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const x = cv.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, w, h), a = d.data, N = w * h;
+    const lab = new Int32Array(N).fill(-1), size = [], box = []; let best = -1, bestN = 0;
+    for (let i = 0; i < N; i++) { if (lab[i] >= 0 || a[i * 4 + 3] < 24) continue;
+      const id = size.length, st = [i]; let n = 0, x0 = w, y0 = h, x1 = 0, y1 = 0; lab[i] = id;
+      while (st.length) { const j = st.pop(), jx = j % w, jy = (j / w) | 0; n++;
+        if (jx < x0) x0 = jx; if (jx > x1) x1 = jx; if (jy < y0) y0 = jy; if (jy > y1) y1 = jy;
+        const nb = [jx > 0 ? j - 1 : -1, jx < w - 1 ? j + 1 : -1, jy > 0 ? j - w : -1, jy < h - 1 ? j + w : -1];
+        for (const k of nb) if (k >= 0 && lab[k] < 0 && a[k * 4 + 3] >= 24) { lab[k] = id; st.push(k); } }
+      size.push(n); box.push([x0, y0, x1, y1]); if (n > bestN) { bestN = n; best = id; } }
+    size.forEach((n, id) => { if (id === best || n >= bestN * 0.02) return; const [x0, y0, x1, y1] = box[id];
+      for (let yy = Math.max(0, y0 - 3); yy <= Math.min(h - 1, y1 + 3); yy++) for (let xx = Math.max(0, x0 - 3); xx <= Math.min(w - 1, x1 + 3); xx++) {
+        const k = yy * w + xx; if (lab[k] !== best) a[k * 4 + 3] = 0; } });
+    /* quầng nền sáng mờ còn dính mép trái (cạnh túi đồ nghề) */
+    for (let yy = Math.floor(h * 0.6); yy < h; yy++) for (let xx = 0; xx < Math.floor(w * 0.14); xx++) {
+      const k = (yy * w + xx) * 4; if (a[k + 3] < 128 && (a[k] + a[k + 1] + a[k + 2]) / 3 > 150) a[k + 3] = 0; }
+    x.putImageData(d, 0, 0); KHP_TECH = cv.toDataURL('image/png');
+    if (typeof ST !== 'undefined' && ST.tab === 7 && typeof render === 'function') render();
+  } catch (e) { console.warn('[khpTech]', e); } };
+  im.src = A.tech;
+}
+const khpTech = A => KHP_TECH || (A && A.tech);
+function khpBookHTML(sl, A) {
+  const P = (x, y, w, h) => `left:${khpQ(x)};top:${khpQ(y)};width:${khpQ(w)};` + (h ? `height:${khpQ(h)};` : '');
+  const T = (x, y, w, h, pt, css, txt) => `<div class="khb-t" style="${P(x, y, w, h)}font-size:${khpPt(pt)};${css}">${esc(txt)}</div>`;
+  const logo = (x, y) => `<div class="khp-logo" style="left:${khpQ(x)};top:${khpQ(y)}">${A && A.tho ? `<img src="${A.tho}" alt="Thợ Điện Máy Xanh">` : '<b>Thợ ĐMX</b>'}</div>`;
+  let h = `<div class="khb-dot" style="${P(7.55, 1.05, 5.3, 5.3)}"></div><div class="khb-dot y" style="${P(12.25, 1.25, 0.45, 0.45)}"></div>`
+    + (khpTech(A) ? `<img class="khb-img" src="${khpTech(A)}" alt="Nhân viên kỹ thuật Thợ Điện Máy Xanh" style="${P(7.32, 0.91, 5.10, 6.64)}">` : '');
+  if (sl.kind === 'khcover') {
+    h += (A && A.dmx ? `<img class="khb-img" src="${A.dmx}" alt="Điện máy XANH" style="${P(0.75, 0.42, 1.52, 0.32)}">` : '') + logo(11.3, 0.3)
+      + T(0.75, 1.45, 6.7, 0.75, 38, `font-weight:800;color:#${KHP.NAVY}`, sl.h1a)
+      + T(0.75, 2.2, 6.7, 0.75, 38, `font-weight:800;color:#${KHP_BLUE}`, sl.h1b)
+      + T(0.78, 3.25, 6.5, 0.4, 19, `font-weight:800;font-style:italic;color:#${KHP.INK}`, sl.sub1)
+      + T(0.78, 3.68, 6.5, 0.4, 19, `font-weight:800;font-style:italic;color:#${KHP.NAVY}`, sl.sub2)
+      + `<div class="khb-chip" style="${P(0.78, 4.4, khpChipW(sl.chip), 0.5)}font-size:${khpPt(14)}">${esc(sl.chip)}</div>`
+      + T(0.78, 5.1, 6.4, 0.3, 10.5, `color:#${KHP.MUT}`, sl.foot0 || '');
+  } else {
+    h += logo(0.75, 0.5)
+      + T(0.75, 1.45, 6.8, 0.85, 40, `font-weight:800;color:#${KHP.NAVY}`, sl.h1)
+      + T(0.75, 2.3, 6.6, 0.45, 17, `font-weight:800;color:#${KHP_BLUE}`, sl.h2)
+      + T(0.75, 2.95, 6.4, 1.1, 16, `color:#${KHP.INK};line-height:1.35`, sl.p)
+      + `<div class="khb-q" style="${P(0.75, 4.15, 6.4, 0.85)}font-size:${khpPt(15)}">${esc(sl.q)}</div>`
+      + T(0.75, 5.2, 6.6, 0.7, 17, `font-weight:800;color:#${KHP.NAVY};line-height:1.3;white-space:pre-line`, sl.c)
+      + T(0.75, 6.1, 6.4, 0.3, 12, `color:#${KHP.MUT}`, sl.k);
+  }
+  return h;
+}
+const khpChipW = t => Math.max(2.0, Math.min(5.2, 0.115 * String(t || '').length + 0.9));
 function khSlideHTML(sl, i, n, S) {
   const A = (typeof DECK_ASSETS !== 'undefined') ? DECK_ASSETS : null;
   const nk = slideNoteKey(sl.id, S), note = slideNote(sl.id, S);
+  if (sl.kind === 'khcover' || sl.kind === 'khthanks') return `<article class="slide khs khb" data-slide="${i}" role="group" aria-label="Slide ${i + 1}/${n}">
+    ${khpBookHTML(sl, A)}
+    <div class="khp-cmt"><span>Nhận xét:</span><div class="note" contenteditable="true" spellcheck="false"
+      data-slidenote="${esc(nk)}" data-ph="${esc(SLIDE_NOTE_PH)}">${esc(note)}</div></div>
+  </article>`;
   return `<article class="slide khs" data-slide="${i}" role="group" aria-label="Slide ${i + 1}/${n}">
     <div class="khp-band"><h2>${esc(sl.title)}</h2>
       <div class="khp-logo">${A && A.tho ? `<img src="${A.tho}" alt="Thợ Điện Máy Xanh">` : '<b>Thợ ĐMX</b>'}</div></div>
@@ -9292,8 +9275,49 @@ function khSlideHTML(sl, i, n, S) {
 }
 
 /* =============================== XUẤT .PPTX =============================== */
+function khpPptBook(p, s, sl, A, F) {
+  s.background = { color: KHP_LIGHT };
+  s.addShape(p.ShapeType.ellipse, { x: 7.55, y: 1.05, w: 5.3, h: 5.3, fill: { color: KHP.CARD }, line: { color: KHP.CARD, width: 0 } });
+  s.addShape(p.ShapeType.ellipse, { x: 12.25, y: 1.25, w: 0.45, h: 0.45, fill: { color: KHP.YEL }, line: { color: KHP.YEL, width: 0 } });
+  if (khpTech(A)) { try { s.addImage({ data: khpTech(A), x: 7.32, y: 0.91, w: 5.10, h: 6.64, altText: 'Nhân viên kỹ thuật Thợ Điện Máy Xanh' }); } catch (_) { } }
+  const logo = (x, y) => {
+    s.addShape(p.ShapeType.roundRect, { x, y, w: 1.58, h: 0.6, fill: { color: KHP.NAVY }, line: { color: KHP.YEL, width: 1.25 }, rectRadius: 0.06 });
+    if (A && A.tho) { try { s.addImage({ data: A.tho, x: x + 0.17, y: y + 0.115, w: 1.24, h: 1.24 / 3.35, altText: 'Thợ Điện Máy Xanh' }); } catch (_) { } }
+    else s.addText('Thợ ĐMX', { x, y, w: 1.58, h: 0.6, fontSize: 14, fontFace: F, bold: true, color: KHP.WH, align: 'center', valign: 'middle', isTextBox: true });
+  };
+  const T = (t, x, y, w, h, o) => s.addText(t || '', Object.assign({ x, y, w, h, fontFace: F, margin: 0, valign: 'middle', isTextBox: true }, o));
+  if (sl.kind === 'khcover') {
+    if (A && A.dmx) { try { s.addImage({ data: A.dmx, x: 0.75, y: 0.42, w: 1.52, h: 0.32, altText: 'Điện máy XANH' }); } catch (_) { } }
+    logo(11.3, 0.3);
+    T(sl.h1a, 0.75, 1.45, 6.7, 0.75, { fontSize: 38, bold: true, color: KHP.NAVY });
+    T(sl.h1b, 0.75, 2.2, 6.7, 0.75, { fontSize: 38, bold: true, color: KHP_BLUE });
+    T(sl.sub1, 0.78, 3.25, 6.5, 0.4, { fontSize: 19, bold: true, italic: true, color: KHP.INK });
+    T(sl.sub2, 0.78, 3.68, 6.5, 0.4, { fontSize: 19, bold: true, italic: true, color: KHP.NAVY });
+    const cw = khpChipW(sl.chip);
+    s.addShape(p.ShapeType.roundRect, { x: 0.78, y: 4.4, w: cw, h: 0.5, fill: { color: KHP.YEL }, line: { color: KHP.YEL, width: 0 }, rectRadius: 0.25 });
+    T(sl.chip, 0.78, 4.4, cw, 0.5, { fontSize: 14, bold: true, color: KHP.NAVY, align: 'center' });
+    T(sl.foot0, 0.78, 5.1, 6.4, 0.3, { fontSize: 10.5, color: KHP.MUT });
+  } else {
+    logo(0.75, 0.5);
+    T(sl.h1, 0.75, 1.45, 6.8, 0.85, { fontSize: 40, bold: true, color: KHP.NAVY });
+    T(sl.h2, 0.75, 2.3, 6.6, 0.45, { fontSize: 17, bold: true, color: KHP_BLUE });
+    T(sl.p, 0.75, 2.95, 6.4, 1.1, { fontSize: 16, color: KHP.INK, valign: 'top', lineSpacingMultiple: 1.1 });
+    s.addShape(p.ShapeType.roundRect, { x: 0.75, y: 4.15, w: 6.4, h: 0.85, fill: { color: KHP.CARD }, line: { color: KHP.CARD, width: 0 }, rectRadius: 0.07 });
+    T(sl.q, 0.95, 4.15, 6.0, 0.85, { fontSize: 15, lineSpacingMultiple: 1.05, italic: true, bold: true, color: KHP.NAVY });
+    T(sl.c, 0.75, 5.2, 6.6, 0.7, { fontSize: 17, bold: true, color: KHP.NAVY, valign: 'top' });
+    T(sl.k, 0.75, 6.1, 6.4, 0.3, { fontSize: 12, color: KHP.MUT });
+  }
+}
 function khPptSlide(p, sl, idx, tot, S) {
   const s = p.addSlide(), A = (typeof DECK_ASSETS !== 'undefined') ? DECK_ASSETS : null, F = 'Arial';
+  if (sl.kind === 'khcover' || sl.kind === 'khthanks') {
+    khpPptBook(p, s, sl, A, F);
+    const nb = slideNote(sl.id, S);
+    if (nb) s.addText([{ text: 'Nhận xét: ', options: { bold: true, color: KHP.NAVY } }, { text: nb, options: { color: KHP.INK } }],
+      { x: 0.75, y: 6.62, w: 6.4, h: 0.5, fontSize: 11, fontFace: F, valign: 'top', margin: 0, fit: 'shrink', isTextBox: true });
+    s.addNotes(nb || '');
+    return;
+  }
   s.background = { color: KHP.WH };
   s.addShape(p.ShapeType.rect, { x: 0, y: 0, w: KHP_W, h: 1.0, fill: { color: KHP.NAVY }, line: { color: KHP.NAVY, width: 0 } });
   s.addText(sl.title, { x: KHP_M, y: 0.08, w: 10.6, h: 0.84, fontSize: 22, fontFace: F, bold: true, color: KHP.WH, valign: 'middle', margin: 0, isTextBox: true });
@@ -9370,7 +9394,7 @@ async function khGhiPptx(p, fileName) {
 .slide.khs>*{position:absolute;box-sizing:border-box}
 .khp-band{left:0;top:0;width:100cqw;height:7.5cqw;background:#${KHP.NAVY};display:flex;align-items:center;padding:0 3.375cqw}
 .khp-band h2{margin:0;color:#fff;font-size:2.29cqw;font-weight:800;line-height:1.18;width:79.5cqw}
-.khp-logo{position:absolute;left:84.75cqw;top:1.5cqw;width:11.85cqw;height:4.5cqw;border:.12cqw solid #${KHP.YEL};border-radius:.45cqw;display:flex;align-items:center;justify-content:center;color:#fff}
+.khp-logo{position:absolute;left:84.75cqw;top:1.5cqw;width:11.85cqw;height:4.5cqw;background:#${KHP.NAVY};border:.12cqw solid #${KHP.YEL};border-radius:.45cqw;display:flex;align-items:center;justify-content:center;color:#fff}
 .khp-logo img{width:9.3cqw;height:auto}
 .khp-sec{font-size:1.354cqw;font-weight:800;color:#${KHP.NAVY};height:2.25cqw;display:flex;align-items:center;white-space:nowrap}
 .khp-sec.sm{font-size:1.25cqw}
@@ -9398,10 +9422,19 @@ async function khGhiPptx(p, fileName) {
 .khp-cmt>span{font-weight:800;color:#${KHP.NAVY};flex:none}
 .khp-cmt .note{flex:1;min-height:2.2cqw;border:.06cqw dashed #${KHP.LINE};border-radius:.35cqw;padding:.3cqw .6cqw;color:#${KHP.INK};background:#F8FAFD;outline:none}
 .khp-cmt .note:empty::before{content:attr(data-ph);color:#9AA8BA;font-style:italic}
+.slide.khs.khb{background:#${KHP_LIGHT}!important}
+.khb-t{white-space:nowrap;display:flex;align-items:center;line-height:1.15}
+.khb-t[style*="line-height"]{white-space:normal;align-items:flex-start}
+.khb-dot{border-radius:50%;background:#${KHP.CARD}}.khb-dot.y{background:#${KHP.YEL}}
+.khb-img{object-fit:fill}
+.khb-chip{background:#${KHP.YEL};color:#${KHP.NAVY};font-weight:800;border-radius:99px;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+.khb-q{background:#${KHP.CARD};border-radius:.55cqw;color:#${KHP.NAVY};font-style:italic;font-weight:800;display:flex;align-items:center;padding:0 1.5cqw;white-space:pre-line;line-height:1.3}
+.slide.khb .khp-cmt{top:49.8cqw;width:48cqw}
 .khp-foot{left:3.375cqw;top:53.1cqw;width:93.25cqw;height:2.1cqw;display:flex;justify-content:space-between;align-items:center;font-size:.99cqw;color:#${KHP.MUT}}
 `;
   const st = document.createElement('style'); st.id = 'khPptCss'; st.textContent = css; document.head.appendChild(st);
 })();
+document.addEventListener('DOMContentLoaded', () => setTimeout(khpTechClean, 400));
 </script>
 <script>
 /* =============================================================================
