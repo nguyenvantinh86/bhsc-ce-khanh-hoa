@@ -8340,23 +8340,57 @@ function khTQData(S) {
     cl: pick(S2 => calcChatLuongTQ7(S2)) };
 }
 /* thực đạt (cột) + phần dự kiến còn lại đến cuối tháng (cột nhạt) + target (đường) — 1 trục */
-function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu) {
+/* bảng 3 dòng dưới biểu đồ tháng: THỰC ĐẠT · KPI · % ĐẠT — mỗi cột thẳng với 1 tháng (giống ô chất lượng) */
+const KH_BANG = { rowH: () => window.innerWidth < 600 ? 20 : 25, n: 3,
+  /* ô hẹp (điện thoại / cửa sổ nhỏ) -> số gọn không lẻ */
+  gon: n => { const w = window.innerWidth, cont = w >= 1100 ? w - 290 : w - 40; return w < 600 || (cont - 136) / Math.max(1, n) < 52; } };
+function khBangPlan(Dt, ser, chieu, cellFmt) {
+  const hep = KH_BANG.gon(ser.length), nguoc = chieu === 'down';
+  /* tháng đang chạy dở (có số ngày đã qua) — đánh dấu * */
+  const chay = (Dt.dt || []).map(x => !!(x && x.k && x.k.meta && x.k.meta.ngayDaQua != null && x.k.meta.ngayTrongThang && x.k.meta.ngayDaQua < x.k.meta.ngayTrongThang));
+  const dong = nguoc ? (hep ? ['Thực tế', 'Đ.mức', '% ĐM'] : ['Thực tế', 'Định mức', '% định mức']) : ['Thực đạt', 'KPI', '% đạt'];
+  const data = [];
+  ser.forEach((x, i) => { x = x || {};
+    const coA = x.a != null && isFinite(x.a), coT = x.t != null && isFinite(x.t) && x.t !== 0;
+    const dk = x.dk != null && coA && x.dk > x.a;            /* tháng đang chạy: % theo dự kiến cuối tháng */
+    const r = coA && coT ? (dk ? x.dk : x.a) / x.t : null;
+    const stw = x.k && x.k.status;
+    const st = r == null ? 4 : stw === 'good' ? 2 : stw === 'bad' ? 3 : (nguoc ? (r <= 1 ? 2 : 3) : (r >= 1 ? 2 : 3));
+    const pct = r == null ? '—' : (hep ? fx(r * 100, 0) : pc1(r))   /* ô hẹp: bỏ ký hiệu % (dòng đã ghi “% đạt”) */ + (dk || (chay[i] && nguoc) ? '*' : '');
+    data.push({ value: [i, 0, coA ? 0 : 4, coA ? cellFmt(x.a) : '—'], label: { color: coA ? '#173B5F' : '#2F6F9F' } });
+    data.push({ value: [i, 1, coT ? 1 : 4, coT ? cellFmt(x.t) : '—'], label: { color: coT ? '#B45309' : '#2F6F9F' } });
+    data.push({ value: [i, 2, st, pct], label: { color: st === 4 ? '#2F6F9F' : '#fff' } }); });
+  return { dong, data };
+}
+function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt) {
   const a = ser.map(x => x ? ecV(x.a) : '-');
   const them = ser.map(x => x && x.dk != null && x.a != null && x.dk > x.a ? x.dk - x.a : '-');
   const t = ser.map(x => x ? ecV(x.t) : '-');
   const coDK = them.some(v => v !== '-'), laDuong = chieu === 'line';
+  const hep = window.innerWidth < 600, rowH = KH_BANG.rowH(), bangH = rowH * KH_BANG.n, L = hep ? 44 : 74, R = hep ? 40 : 62;
+  const B = khBangPlan(Dt, ser, chieu, cellFmt ? v => cellFmt(v, KH_BANG.gon(ser.length)) : axisFmt);
   return ecBase({
-    legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 10, textStyle: { fontSize: 11, color: CH.ink2, fontWeight: 600 } },
-    grid: { left: 6, right: 62, top: window.innerWidth < 600 ? 56 : 34, bottom: 4, containLabel: true },
+    legend: { top: 0, left: 0, itemWidth: 12, itemHeight: 10, textStyle: { fontSize: 11, color: CH.ink2, fontWeight: 600 },
+      data: [nameA, ...(coDK && !laDuong ? ['Dự kiến thêm đến cuối tháng'] : []), nameT] },
+    grid: [{ left: L, right: R, top: hep ? 56 : 34, bottom: bangH + (hep ? 26 : 30), containLabel: false },
+      { left: L, right: R, height: bangH, bottom: 4, containLabel: false }],
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
+    visualMap: { show: false, type: 'piecewise', seriesIndex: (coDK && !laDuong ? 3 : 2), dimension: 2,
+      pieces: [{ value: 0, color: '#F1F6FB' }, { value: 1, color: '#FFF4E5' }, { value: 2, color: CH.st.good }, { value: 3, color: CH.st.bad }, { value: 4, color: '#DCEEFB' }] },
     tooltip: ecTip(null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } },
-      formatter: ps => { const i = ps[0].dataIndex, x = ser[i] || {};
+      formatter: ps => { ps = Array.isArray(ps) ? ps : [ps]; const p0 = ps.find(p => p.seriesType !== 'heatmap') || ps[0];
+        let i = Dt.lab.indexOf(p0.axisValue); if (i < 0) i = p0.dataIndex; const x = ser[i] || {};
         const r = x.t ? (x.dk != null ? x.dk : x.a) / x.t : null;
         return `<div style="font-weight:800;color:#A6E0F8;margin-bottom:3px">${Dt.lab[i]}</div>
           <div>${esc(nameA)}: <b>${esc(x.a == null ? '–' : fmt(x.a))}</b></div>
           ${x.dk != null && x.a != null && x.dk > x.a ? `<div>Dự kiến cuối tháng: <b>${esc(fmt(x.dk))}</b></div>` : ''}
           <div>${esc(nameT)}: <b>${esc(x.t == null ? '–' : fmt(x.t))}</b></div>
           ${r != null ? `<div>Tỷ lệ${x.dk != null && x.dk > x.a ? ' dự kiến' : ''}: <b>${pc1(r)}</b></div>` : ''}`; } }),
-    xAxis: ecXCat(Dt.lab, Dt.selF), yAxis: ecYVal(axisFmt, laDuong ? { scale: true } : {}),
+    xAxis: [ecXCat(Dt.lab, Dt.selF), { type: 'category', gridIndex: 1, data: Dt.lab, show: false }],
+    yAxis: [ecYVal(axisFmt, laDuong ? { scale: true } : {}),
+      { type: 'category', gridIndex: 1, data: B.dong, inverse: true, axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: false },
+        axisLabel: { fontSize: hep ? 8.5 : 10.5, fontWeight: 800, margin: 6, formatter: (v, i) => `{r${i}|${v}}`,
+          rich: { r0: { color: '#173B5F', fontWeight: 800 }, r1: { color: '#B45309', fontWeight: 800 }, r2: { color: CH.ink, fontWeight: 800 } } } }],
     series: [
       laDuong
         ? { type: 'line', name: nameA, data: a, smooth: .18, symbol: 'circle', symbolSize: 7, lineStyle: { width: 2.6, color: CH.s1 },
@@ -8368,18 +8402,21 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu) {
       { type: 'line', name: nameT, data: t, symbol: 'diamond', symbolSize: 8, step: false, z: 4,
         lineStyle: { color: CH.s2, width: 2, type: [6, 4] }, itemStyle: { color: CH.s2, borderColor: '#fff', borderWidth: 1.5 },
         endLabel: { show: !laDuong, formatter: q => fmt(q.value), fontSize: 10.5, fontWeight: 800, color: CH.ink, distance: 6 },
-        labelLayout: { moveOverlap: 'shiftY' } }
+        labelLayout: { moveOverlap: 'shiftY' } },
+      { type: 'heatmap', name: '_bang', xAxisIndex: 1, yAxisIndex: 1, data: B.data, z: 3,
+        itemStyle: { borderColor: '#fff', borderWidth: hep ? 1.5 : 2, borderRadius: 4 }, emphasis: { disabled: true },
+        label: { show: true, formatter: q => q.value[3], fontSize: hep ? 7.5 : KH_BANG.gon(ser.length) ? 9 : 10.5, fontWeight: 800 } }
     ]
   });
 }
-function khTQPlanCard(Dt, key, title, icon, fmt, axisFmt, nameA, nameT, note, chieu) {
+function khTQPlanCard(Dt, key, title, icon, fmt, axisFmt, nameA, nameT, note, chieu, cellFmt) {
   const ser = Dt[key];
   const rows = Dt.lab.map((l, i) => { const x = ser[i] || {}; const r = x.t ? (x.dk != null ? x.dk : x.a) / x.t : null;
     return [`<b>${l}</b>`, x.a == null ? '–' : esc(fmt(x.a)), x.dk != null && x.a != null && x.dk > x.a ? esc(fmt(x.dk)) : '–', x.t == null ? '–' : esc(fmt(x.t)), r == null ? '–' : pc1(r)]; });
   const coDK = ser.some(x => x && x.dk != null && x.a != null && x.dk > x.a) && chieu !== 'line';
   return chartCard({ title, icon, note,
-    sub: `${Dt.lab.length} tháng · ${scopeLbl(ST)}${coDK ? ' · cột nhạt viền đứt = phần dự kiến còn lại đến cuối tháng' : ''}`,
-    svg: ecBox(() => khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu), 300, '', title),
+    sub: `${Dt.lab.length} tháng · ${scopeLbl(ST)}${coDK ? ' · cột nhạt viền đứt = phần dự kiến còn lại đến cuối tháng' : ''} · bảng dưới: ${chieu === 'down' ? 'thực tế · định mức · % định mức (≤ 100% là ĐẠT)' : 'thực đạt · KPI · % đạt'} · ô xanh lá = ĐẠT, đỏ = KHÔNG ĐẠT${ser.some(x => x && x.dk != null && x.a != null && x.dk > x.a) ? ' · * tháng đang chạy: % theo dự kiến cuối tháng' : chieu === 'down' ? ' · * tháng đang chạy: chi phí đến ngày chốt' : ''}`,
+    svg: ecBox(() => khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt), 300 + KH_BANG.rowH() * KH_BANG.n + 30, '', title),
     table: chTable(['Tháng', nameA, 'Dự kiến cuối tháng', nameT, 'Tỷ lệ'], rows) });
 }
 /* bánh vòng (donut) cơ cấu — tổng ở giữa, chú thích bên phải có số tiền + tỷ trọng (màn hẹp: chú thích xuống dưới) */
@@ -8474,10 +8511,10 @@ function khTQ(S) {
     table: chTable(['Nhóm', 'Thực đạt', 'Tỷ trọng', 'Target', 'Tỷ lệ'], nhom.map(k => [esc(k.name), tr(k.actual), pc1(k.actual / tongN), k.target == null ? '–' : tr(k.target), k.rate == null ? '–' : pc1(k.rate)])) }) : '';
   return `<div class="khtq"><div class="secttl khsecttl" data-khsec="PHÂN TÍCH XU HƯỚNG &amp; HIỆU SUẤT">${ic('trendup', 15)} PHÂN TÍCH XU HƯỚNG &amp; HIỆU SUẤT
       <span>${Dt.lab.length} tháng · ${esc(scopeLbl(S))} · rê chuột để xem số, bấm “Bảng số” để xem bảng</span></div>
-    <div class="khg2">${khTQPlanCard(Dt, 'dt', 'Doanh thu theo tháng — thực đạt so với target', 'trendup', tr, v => fx(v, 0), 'Doanh thu thực đạt', 'Target doanh thu', 'Đơn vị: triệu đồng. Tháng đang chạy dở: cột đậm = thực đạt đến hôm nay, cột nhạt viền đứt = phần dự kiến thêm đến cuối tháng.')}
-      ${khTQPlanCard(Dt, 'sl', 'Sản lượng theo tháng — thực đạt so với target', 'pkg', v => f0(v) + ' đơn', v => f0(v), 'Đơn hàng thực đạt', 'Target đơn hàng', 'Đơn vị: đơn hàng bảo hành tại nhà.')}</div>
-    <div class="khg2">${khTQPlanCard(Dt, 'cp', 'Chi phí theo tháng — thực tế so với định mức', 'calculator', tr, v => fx(v, 0), 'Chi phí thực tế', 'Định mức chi phí', 'Đơn vị: triệu đồng. KPI ĐẢO CHIỀU — chi phí nằm DƯỚI đường định mức mới là ĐẠT.', 'down')}
-      ${khTQPlanCard(Dt, 'dg', 'Đơn giá trung bình theo tháng', 'coins', vnd, v => fx(v / 1000, 0) + 'k', 'Đơn giá TB thực đạt', 'Target đơn giá', 'Đơn giá là số bình quân, không cộng dồn — trục dọc không bắt đầu từ 0 để thấy rõ chênh lệch.', 'line')}</div>
+    <div class="khg1">${khTQPlanCard(Dt, 'dt', 'Doanh thu theo tháng — thực đạt so với target', 'trendup', tr, v => fx(v, 0), 'Doanh thu thực đạt', 'Target doanh thu', 'Đơn vị: triệu đồng. Tháng đang chạy dở: cột đậm = thực đạt đến hôm nay, cột nhạt viền đứt = phần dự kiến thêm đến cuối tháng.', undefined, (v, g) => fx(v, g ? 0 : 1))}
+      ${khTQPlanCard(Dt, 'sl', 'Sản lượng theo tháng — thực đạt so với target', 'pkg', v => f0(v) + ' đơn', v => f0(v), 'Đơn hàng thực đạt', 'Target đơn hàng', 'Đơn vị: đơn hàng bảo hành tại nhà.', undefined, v => f0(v))}</div>
+    <div class="khg1">${khTQPlanCard(Dt, 'cp', 'Chi phí theo tháng — thực tế so với định mức', 'calculator', tr, v => fx(v, 0), 'Chi phí thực tế', 'Định mức chi phí', 'Đơn vị: triệu đồng. KPI ĐẢO CHIỀU — chi phí nằm DƯỚI đường định mức mới là ĐẠT. Tháng đang chạy: chi phí là số thực tế đến ngày chốt.', 'down', (v, g) => fx(v, g ? 0 : 1))}
+      ${khTQPlanCard(Dt, 'dg', 'Đơn giá trung bình theo tháng', 'coins', vnd, v => fx(v / 1000, 0) + 'k', 'Đơn giá TB thực đạt', 'Target đơn giá', 'Đơn giá là số bình quân, không cộng dồn — trục dọc không bắt đầu từ 0 để thấy rõ chênh lệch.', 'line', (v, g) => fx(v / 1000, g ? 0 : 1) + 'k')}</div>
     ${tc.length ? clCard : ''}
     <div class="khg2">${vtCard}${nhomCard}</div></div>`;
 }
@@ -8817,6 +8854,7 @@ body.khnav-mo .khn-bd{display:block}
 .khtq{display:flex;flex-direction:column;gap:var(--sp);margin-top:32px}
 .khsecttl{padding:4px 2px 0;flex-wrap:wrap}.khsecttl span{font-size:11px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0}
 .khg2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp)}
+.khg1{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp)}
 @media (max-width:1100px){.khg2{grid-template-columns:minmax(0,1fr)}}
 .khnvgrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:var(--sp);align-items:start}
 
