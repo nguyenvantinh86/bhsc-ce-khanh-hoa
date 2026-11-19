@@ -8412,7 +8412,7 @@ function khTQ(S) {
     const st = k && k.actual != null ? (k.status === 'good' ? 2 : 1) : 0;
     hm.push([xi, yi, st, k && k.actual != null ? k.fmt(k.actual) : '', k && k.target != null ? k.fmt(k.target) : '']); }));
   const clCard = chartCard({ title: 'Chất lượng 5 tiêu chí theo tháng', icon: 'shield',
-    sub: `Xanh = ĐẠT · đỏ = KHÔNG ĐẠT · xám = CHƯA ĐO · ${scopeLbl(S)}`,
+    sub: `Mỗi ô: số lớn = THỰC ĐẠT · nhãn trắng = KPI · xanh lá = ĐẠT · đỏ = KHÔNG ĐẠT · xanh nhạt = CHƯA ĐO · ${scopeLbl(S)}`,
     svg: ecBox(() => { const xx = q => hep ? q.value[1] : q.value[0], yy = q => hep ? q.value[0] : q.value[1];
       const axM = { type: 'category', data: Dt.lab, axisTick: { show: false }, axisLine: { show: false }, inverse: hep,
         axisLabel: { color: CH.muted, fontSize: 11, formatter: (v, i) => Dt.selF[i] ? `{b|${v}}` : v, rich: { b: { fontWeight: 800, color: CH.ink } } } };
@@ -8422,16 +8422,25 @@ function khTQ(S) {
           : { color: CH.ink2, fontSize: 11, fontWeight: 700 } };
       return ecBase({ toolbox: { show: false }, grid: { left: 6, right: 8, top: hep ? 66 : 34, bottom: 4, containLabel: true },
       tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
-        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${Dt.lab[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || 'Chưa đo')}</b><br>Target: <b>${esc(q.value[4] || '—')}</b>` },
+        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${Dt.lab[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || 'Chưa đo')}</b><br>KPI: <b style="color:#FFE08A">${esc(q.value[4] || '—')}</b>${q.value[2] ? `<br>Kết quả: <b>${q.value[2] === 2 ? 'ĐẠT' : 'KHÔNG ĐẠT'}</b>` : ''}` },
       xAxis: hep ? axT : axM, yAxis: hep ? axM : axT,
       visualMap: { type: 'piecewise', dimension: 2, orient: 'horizontal', top: 0, left: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, color: CH.ink2 },
-        pieces: [{ value: 2, label: 'Đạt', color: CH.st.good }, { value: 1, label: 'Không đạt', color: CH.st.bad }, { value: 0, label: 'Chưa đo', color: '#E2E8F0' }] },
+        pieces: [{ value: 2, label: 'Đạt', color: CH.st.good }, { value: 1, label: 'Không đạt', color: CH.st.bad }, { value: 0, label: 'Chưa đo', color: '#DCEEFB' }] },
       series: [{ type: 'heatmap', name: 'Chất lượng', data: (hep ? hm.map(d => [d[1], d[0], d[2], d[3], d[4]]) : hm)
-          .map(d => d[2] === 0 ? { value: d, label: { color: '#6B7C8A', fontWeight: 600 } } : d), itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 5 },
-        label: { show: true, formatter: q => q.value[3] || (q.value[2] === 0 ? 'Chưa đo' : ''), color: '#fff', fontWeight: 700, fontSize: hep ? 9.5 : 10.5 } }]
-    }); }, hep ? 80 + Dt.lab.length * 30 : 44 + tc.length * 40, '', 'Chất lượng 5 tiêu chí theo tháng'),
+          .map(d => d[2] === 0 ? { value: d, itemStyle: { borderColor: '#fff', color: '#DCEEFB' } } : d), itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 6 },
+        /* ô có số: dòng trên = THỰC ĐẠT (trắng, to) · dòng dưới = KPI (nhãn trắng, chữ đậm màu theo kết quả) */
+        label: { show: true, align: 'center', verticalAlign: 'middle',
+          formatter: q => { const st = q.value[2], a = q.value[3], k = q.value[4];
+            if (!st || !a) return '{n|Chưa đo}';
+            return k ? `{a|${a}}\n{${st === 2 ? 'kg' : 'kb'}|${hep ? '' : 'KPI '}${k}}` : `{a|${a}}`; },
+          rich: { a: { color: '#fff', fontSize: hep ? 11 : 13.5, fontWeight: 800, lineHeight: hep ? 15 : 20, align: 'center' },
+            kg: { color: '#0B6B3F', backgroundColor: 'rgba(255,255,255,.94)', borderRadius: 9, padding: hep ? [1, 4] : [2, 7], fontSize: hep ? 8.5 : 10, fontWeight: 800, lineHeight: hep ? 12 : 14, align: 'center' },
+            kb: { color: '#A32020', backgroundColor: 'rgba(255,255,255,.94)', borderRadius: 9, padding: hep ? [1, 4] : [2, 7], fontSize: hep ? 8.5 : 10, fontWeight: 800, lineHeight: hep ? 12 : 14, align: 'center' },
+            n: { color: '#2F6F9F', fontSize: hep ? 9.5 : 11, fontWeight: 700, align: 'center' } } } }]
+    }); }, hep ? 80 + Dt.lab.length * 42 : 44 + tc.length * 56, '', 'Chất lượng 5 tiêu chí theo tháng'),
     table: chTable(['Tiêu chí', ...Dt.lab], tc.map((c, yi) => [esc(c.name), ...Dt.lab.map((l, xi) => { const h = hm.find(z => z[0] === xi && z[1] === yi);
-      return h && h[3] ? `${esc(h[3])} <span class="badge ${h[2] === 2 ? 'good' : 'bad'}" style="font-size:9px">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>` : '<span style="color:var(--muted)">Chưa đo</span>'; })])) });
+      return h && h[3] ? `<b style="color:${h[2] === 2 ? '#13794A' : '#B42318'}">${esc(h[3])}</b>${h[4] ? ` <span style="color:#7A8794">/ KPI ${esc(h[4])}</span>` : ''} <span class="badge ${h[2] === 2 ? 'good' : 'bad'}" style="font-size:9px">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>`
+        : '<span style="display:inline-block;padding:1px 8px;border-radius:9px;background:#DCEEFB;color:#2F6F9F;font-weight:600">Chưa đo</span>'; })])) });
   /* 2) Vượt Trội: top 10 điểm lũy kế */
   let vtCard = '';
   if (typeof VT !== 'undefined' && VT && VT.nguoi && VT.nguoi.length) {
