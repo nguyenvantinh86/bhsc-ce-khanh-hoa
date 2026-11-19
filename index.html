@@ -8341,9 +8341,69 @@ function khTQData(S) {
 }
 /* thực đạt (cột) + phần dự kiến còn lại đến cuối tháng (cột nhạt) + target (đường) — 1 trục */
 /* bảng 3 dòng dưới biểu đồ tháng: THỰC ĐẠT · KPI · % ĐẠT — mỗi cột thẳng với 1 tháng (giống ô chất lượng) */
-const KH_BANG = { rowH: () => window.innerWidth < 600 ? 20 : 25, n: 3,
+/* 19/11/2026 anh Thu chốt bảng màu phần PHÂN TÍCH XU HƯỚNG: KHÔNG dùng xanh lá —
+   xanh dương đậm = ĐẠT · đỏ = KHÔNG ĐẠT · xanh nhạt = CHƯA ĐO / chưa có số */
+const KH_MAU = { dat: '#1F5FAD', khong: '#D1453B', chua: '#E4EFFA', chuaTx: '#4C79A6', datTx: '#16508F', khongTx: '#B3261E',
+  thuc: '#F2F6FA', thucTx: '#173B5F', kpi: '#FFF4E5', kpiTx: '#B45309' };
+const KH_BANG = { rowH: () => window.innerWidth < 600 ? 20 : 25, n: 3, panel: () => window.innerWidth < 900 ? 0 : 176,
   /* ô hẹp (điện thoại / cửa sổ nhỏ) -> số gọn không lẻ */
-  gon: n => { const w = window.innerWidth, cont = w >= 1100 ? w - 290 : w - 40; return w < 600 || (cont - 136) / Math.max(1, n) < 52; } };
+  gon: n => { const w = window.innerWidth, cont = (w >= 1100 ? w - 290 : w - 40) - KH_BANG.panel(); return w < 600 || (cont - 136) / Math.max(1, n) < 52; } };
+/* phạm vi CẢ NĂM của kỳ đang xem — dùng đúng hàm tính "Cả năm" của web (cộng dồn / bình quân gia quyền) */
+const khKyNam = S => Object.assign({}, S, { ky: 'Năm', months: monthsOf(S.nam) });
+function khNamTong(S, key) {
+  const Y = khKyNam(S);
+  const f = { dt: () => calcTongDoanhThu(Y), sl: () => calcSanLuongTong('nha', Y), cp: () => calcChiPhiAll(Y), dg: () => calcDonGia('nha', Y) }[key];
+  try { return f ? f() : null; } catch (_) { return null; }
+}
+/* tháng đang chạy dở: {i, da, tong} theo số ngày đã qua của doanh thu tháng đó */
+function khThangChay(Dt) {
+  const i = (Dt.dt || []).findIndex(x => x && x.k && x.k.meta && x.k.meta.ngayDaQua != null && x.k.meta.ngayTrongThang && x.k.meta.ngayDaQua < x.k.meta.ngayTrongThang);
+  return i < 0 ? null : { i, da: Dt.dt[i].k.meta.ngayDaQua, tong: Dt.dt[i].k.meta.ngayTrongThang };
+}
+/* DỰ KIẾN CẢ NĂM (chỉ nhóm cộng dồn): tháng đã xong = thực đạt; tháng đang chạy = dự kiến cuối tháng
+   (chi phí: quy theo số ngày); tháng chưa có số = giữ nhịp tháng gần nhất */
+function khDuKienNam(Dt, ser, key) {
+  if (key === 'dg') return null;
+  const ch = khThangChay(Dt); let tong = 0, nhip = null, coSo = false;
+  ser.forEach((x, i) => { x = x || {}; let v = null;
+    if (x.a != null && isFinite(x.a)) {
+      v = x.dk != null && x.dk > x.a ? x.dk : (ch && ch.i === i ? x.a * ch.tong / ch.da : x.a);
+      nhip = v; coSo = true;
+    } else if (coSo && nhip != null) v = nhip;
+    if (v != null) tong += v; });
+  return coSo ? tong : null;
+}
+/* dữ liệu ĐỦ 12 tháng của năm đang xem (dù đang chọn 1 hay nhiều tháng) — để dự kiến cả năm không phụ thuộc kỳ chọn */
+function khDtNam(Dt) {
+  if (Dt.N) return Dt.N; const S = Dt.S || ST;
+  try { Dt.N = khTQData(Object.assign({}, S, { ky: 'Tháng', months: [S.thang] })); Dt.N.S = S; } catch (_) { Dt.N = Dt; }
+  return Dt.N;
+}
+/* CỘT NĂM 2026 bên phải biểu đồ: phần trên = dự kiến cả năm + ĐẠT/KHÔNG ĐẠT; 3 dòng dưới thẳng hàng với bảng tháng */
+function khNamPanel(Dt, key, chieu, cellFmt, fmt) {
+  const S = Dt.S || ST, K = khNamTong(S, key); if (!K) return '';
+  const a = NB(K.actual), t = NB(K.target), nguoc = chieu === 'down', binhQuan = key === 'dg';
+  if (a == null || t == null || !t) return '';
+  const N = khDtNam(Dt), dk = khDuKienNam(N, N[key], key), ch = khThangChay(N);
+  const so = binhQuan ? a : dk, r = so != null ? so / t : null;
+  const dat = r == null ? null : binhQuan ? (K.status === 'good' || (K.status !== 'bad' && r >= 1)) : (nguoc ? r <= 1 : r >= 1);
+  const den = ch ? `đến ${ch.da}/${(N.ms || [])[ch.i] || ''}` : 'cả năm';
+  const g = KH_BANG.gon(12), cf = v => cellFmt ? cellFmt(v, g) : f0(v);
+  const dv = { dt: ' tr', cp: ' tr', sl: ' đơn' }[key] || '';
+  const kq = dat == null ? '' : `<div class="khyr-kq ${dat ? 'dat' : 'khong'}">${dat ? 'ĐẠT' : 'KHÔNG ĐẠT'}</div>`;
+  const ghi = binhQuan ? 'so bình quân năm với KPI năm'
+    : `thực đạt ${ch ? 'T' + N.ms[0] + '–T' + N.ms[Math.max(0, ch.i - 1)] + ' + dự kiến T' + N.ms[ch.i] : 'các tháng'}${ch && ch.i < N.ms.length - 1 ? ' + tháng còn lại giữ nhịp T' + N.ms[ch.i] : ''}`;
+  const dkTxt = binhQuan ? `<div class="khyr-l">Bình quân năm (đến nay)</div><div class="khyr-v">${esc(fmt(a))}</div><div class="khyr-s">= ${pc1(r)} KPI năm</div>`
+    : `<div class="khyr-l">Dự kiến cả năm</div><div class="khyr-v">${esc(cf(dk) + dv)}</div><div class="khyr-s">= ${pc1(r)} ${nguoc ? 'định mức' : 'KPI'} năm</div>`;
+  const tip = binhQuan ? 'Đơn giá là bình quân gia quyền theo sản lượng, không cộng dồn.'
+    : `Dự kiến = thực đạt các tháng đã xong + dự kiến cuối tháng đang chạy${nguoc ? ' (quy theo số ngày)' : ''} + tháng chưa có số giữ nhịp tháng gần nhất.`;
+  return `<aside class="khyr" title="${esc(tip)}"><div class="khyr-top"><div class="khyr-h">NĂM ${S.nam}</div>${dkTxt}${kq}<div class="khyr-g">${esc(ghi)}</div></div>
+    <div class="khyr-rows" style="--rh:${KH_BANG.rowH()}px">
+      <div class="khyr-r thuc"><span>${nguoc ? 'Thực tế' : 'Thực đạt'} ${esc(den)}</span><b>${esc(cf(a))}</b></div>
+      <div class="khyr-r kpi"><span>${nguoc ? 'Định mức năm' : 'KPI năm'}</span><b>${esc(cf(t))}</b></div>
+      <div class="khyr-r pct"><span>${nguoc ? '% định mức' : '% đạt'}</span><b>${pc1(a / t)}</b><i style="width:${Math.max(0, Math.min(100, a / t * 100)).toFixed(1)}%"></i></div>
+    </div></aside>`;
+}
 function khBangPlan(Dt, ser, chieu, cellFmt) {
   const hep = KH_BANG.gon(ser.length), nguoc = chieu === 'down';
   /* tháng đang chạy dở (có số ngày đã qua) — đánh dấu * */
@@ -8357,9 +8417,9 @@ function khBangPlan(Dt, ser, chieu, cellFmt) {
     const stw = x.k && x.k.status;
     const st = r == null ? 4 : stw === 'good' ? 2 : stw === 'bad' ? 3 : (nguoc ? (r <= 1 ? 2 : 3) : (r >= 1 ? 2 : 3));
     const pct = r == null ? '—' : (hep ? fx(r * 100, 0) : pc1(r))   /* ô hẹp: bỏ ký hiệu % (dòng đã ghi “% đạt”) */ + (dk || (chay[i] && nguoc) ? '*' : '');
-    data.push({ value: [i, 0, coA ? 0 : 4, coA ? cellFmt(x.a) : '—'], label: { color: coA ? '#173B5F' : '#2F6F9F' } });
-    data.push({ value: [i, 1, coT ? 1 : 4, coT ? cellFmt(x.t) : '—'], label: { color: coT ? '#B45309' : '#2F6F9F' } });
-    data.push({ value: [i, 2, st, pct], label: { color: st === 4 ? '#2F6F9F' : '#fff' } }); });
+    data.push({ value: [i, 0, coA ? 0 : 4, coA ? cellFmt(x.a) : '—'], label: { color: coA ? KH_MAU.thucTx : KH_MAU.chuaTx } });
+    data.push({ value: [i, 1, coT ? 1 : 4, coT ? cellFmt(x.t) : '—'], label: { color: coT ? KH_MAU.kpiTx : KH_MAU.chuaTx } });
+    data.push({ value: [i, 2, st, pct], label: { color: st === 4 ? KH_MAU.chuaTx : '#fff' } }); });
   return { dong, data };
 }
 function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt) {
@@ -8376,7 +8436,7 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt) {
       { left: L, right: R, height: bangH, bottom: 4, containLabel: false }],
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
     visualMap: { show: false, type: 'piecewise', seriesIndex: (coDK && !laDuong ? 3 : 2), dimension: 2,
-      pieces: [{ value: 0, color: '#F1F6FB' }, { value: 1, color: '#FFF4E5' }, { value: 2, color: CH.st.good }, { value: 3, color: CH.st.bad }, { value: 4, color: '#DCEEFB' }] },
+      pieces: [{ value: 0, color: KH_MAU.thuc }, { value: 1, color: KH_MAU.kpi }, { value: 2, color: KH_MAU.dat }, { value: 3, color: KH_MAU.khong }, { value: 4, color: KH_MAU.chua }] },
     tooltip: ecTip(null, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(33,91,150,.06)' } },
       formatter: ps => { ps = Array.isArray(ps) ? ps : [ps]; const p0 = ps.find(p => p.seriesType !== 'heatmap') || ps[0];
         let i = Dt.lab.indexOf(p0.axisValue); if (i < 0) i = p0.dataIndex; const x = ser[i] || {};
@@ -8390,7 +8450,7 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt) {
     yAxis: [ecYVal(axisFmt, laDuong ? { scale: true } : {}),
       { type: 'category', gridIndex: 1, data: B.dong, inverse: true, axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: false },
         axisLabel: { fontSize: hep ? 8.5 : 10.5, fontWeight: 800, margin: 6, formatter: (v, i) => `{r${i}|${v}}`,
-          rich: { r0: { color: '#173B5F', fontWeight: 800 }, r1: { color: '#B45309', fontWeight: 800 }, r2: { color: CH.ink, fontWeight: 800 } } } }],
+          rich: { r0: { color: KH_MAU.thucTx, fontWeight: 800 }, r1: { color: KH_MAU.kpiTx, fontWeight: 800 }, r2: { color: CH.ink, fontWeight: 800 } } } }],
     series: [
       laDuong
         ? { type: 'line', name: nameA, data: a, smooth: .18, symbol: 'circle', symbolSize: 7, lineStyle: { width: 2.6, color: CH.s1 },
@@ -8413,10 +8473,14 @@ function khTQPlanCard(Dt, key, title, icon, fmt, axisFmt, nameA, nameT, note, ch
   const ser = Dt[key];
   const rows = Dt.lab.map((l, i) => { const x = ser[i] || {}; const r = x.t ? (x.dk != null ? x.dk : x.a) / x.t : null;
     return [`<b>${l}</b>`, x.a == null ? '–' : esc(fmt(x.a)), x.dk != null && x.a != null && x.dk > x.a ? esc(fmt(x.dk)) : '–', x.t == null ? '–' : esc(fmt(x.t)), r == null ? '–' : pc1(r)]; });
+  { const K = khNamTong(Dt.S || ST, key), N = khDtNam(Dt), dkN = khDuKienNam(N, N[key], key);
+    if (K && NB(K.actual) != null && NB(K.target)) rows.push([`<b>NĂM ${(Dt.S || ST).nam}</b>`, `<b>${esc(fmt(K.actual))}</b>`,
+      key === 'dg' ? '–' : (dkN == null ? '–' : `<b>${esc(fmt(dkN))}</b> (dự kiến cả năm)`), `<b>${esc(fmt(K.target))}</b>`, `<b>${pc1(K.actual / K.target)}</b>`]); }
+  const panel = khNamPanel(Dt, key, chieu, cellFmt, fmt);
   const coDK = ser.some(x => x && x.dk != null && x.a != null && x.dk > x.a) && chieu !== 'line';
   return chartCard({ title, icon, note,
-    sub: `${Dt.lab.length} tháng · ${scopeLbl(ST)}${coDK ? ' · cột nhạt viền đứt = phần dự kiến còn lại đến cuối tháng' : ''} · bảng dưới: ${chieu === 'down' ? 'thực tế · định mức · % định mức (≤ 100% là ĐẠT)' : 'thực đạt · KPI · % đạt'} · ô xanh lá = ĐẠT, đỏ = KHÔNG ĐẠT${ser.some(x => x && x.dk != null && x.a != null && x.dk > x.a) ? ' · * tháng đang chạy: % theo dự kiến cuối tháng' : chieu === 'down' ? ' · * tháng đang chạy: chi phí đến ngày chốt' : ''}`,
-    svg: ecBox(() => khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt), 300 + KH_BANG.rowH() * KH_BANG.n + 30, '', title),
+    sub: `${Dt.lab.length} tháng · ${scopeLbl(ST)}${coDK ? ' · cột nhạt viền đứt = phần dự kiến còn lại đến cuối tháng' : ''} · bảng dưới: ${chieu === 'down' ? 'thực tế · định mức · % định mức (≤ 100% là ĐẠT)' : 'thực đạt · KPI · % đạt'} · ô xanh dương đậm = ĐẠT, đỏ = KHÔNG ĐẠT · cột phải = tổng NĂM${ser.some(x => x && x.dk != null && x.a != null && x.dk > x.a) ? ' · * tháng đang chạy: % theo dự kiến cuối tháng' : chieu === 'down' ? ' · * tháng đang chạy: chi phí đến ngày chốt' : ''}`,
+    svg: `<div class="khyr-wrap">${ecBox(() => khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt), 300 + KH_BANG.rowH() * KH_BANG.n + 30, '', title)}${panel}</div>`,
     table: chTable(['Tháng', nameA, 'Dự kiến cuối tháng', nameT, 'Tỷ lệ'], rows) });
 }
 /* bánh vòng (donut) cơ cấu — tổng ở giữa, chú thích bên phải có số tiền + tỷ trọng (màn hẹp: chú thích xuống dưới) */
@@ -8442,42 +8506,50 @@ function khTQ(S) {
   if (!M(S) && !isYear(S)) return '';
   let Dt; try { Dt = khTQData(S); } catch (e) { console.warn('[khTQ]', e); return ''; }
   if (!Dt.ms.length) return '';
+  Dt.S = S;
   /* 1) bản đồ chất lượng: 5 tiêu chí × tháng */
   const tc = (Dt.cl.find(q => q && q.all && q.all.length) || { all: [] }).all.map(k => ({ key: k.key, name: k.name }));
   const hm = [], hep = window.innerWidth < 600;   /* màn hẹp (điện thoại): xoay bảng — tháng theo hàng dọc */
-  tc.forEach((c, yi) => Dt.cl.forEach((q, xi) => { const k = q && q.all ? q.all.find(z => z.key === c.key) : null;
+  /* cột cuối = NĂM (bình quân gia quyền cả năm theo đúng hàm "Cả năm" của web) */
+  let clNam = null; try { clNam = calcChatLuongTQ7(khKyNam(S)); } catch (_) { }
+  const cols = Dt.cl.concat([clNam]), labs = Dt.lab.concat([hep ? 'Năm' : 'NĂM ' + S.nam]), selC = Dt.selF.concat([false]);
+  const pcK = k => { if (!k || k.actual == null || k.target == null || !k.target) return '';
+    const r = k.lower ? k.target / k.actual : k.actual / k.target; return isFinite(r) ? (hep ? fx(r * 100, 0) + '%' : pc1(r)) : ''; };
+  tc.forEach((c, yi) => cols.forEach((q, xi) => { const k = q && q.all ? q.all.find(z => z.key === c.key) : null;
     const st = k && k.actual != null ? (k.status === 'good' ? 2 : 1) : 0;
-    hm.push([xi, yi, st, k && k.actual != null ? k.fmt(k.actual) : '', k && k.target != null ? k.fmt(k.target) : '']); }));
+    hm.push([xi, yi, st, k && k.actual != null ? k.fmt(k.actual) : '', k && k.target != null ? k.fmt(k.target) : '', k && k.actual != null ? pcK(k) : '']); }));
   const clCard = chartCard({ title: 'Chất lượng 5 tiêu chí theo tháng', icon: 'shield',
-    sub: `Mỗi ô: số lớn = THỰC ĐẠT · nhãn trắng = KPI · xanh lá = ĐẠT · đỏ = KHÔNG ĐẠT · xanh nhạt = CHƯA ĐO · ${scopeLbl(S)}`,
+    sub: `Mỗi ô: số lớn = THỰC ĐẠT · nhãn trắng = KPI · dòng dưới = % đạt so với KPI · xanh dương đậm = ĐẠT · đỏ = KHÔNG ĐẠT · xanh nhạt = CHƯA ĐO · cột cuối = bình quân NĂM ${S.nam} · ${scopeLbl(S)}`,
     svg: ecBox(() => { const xx = q => hep ? q.value[1] : q.value[0], yy = q => hep ? q.value[0] : q.value[1];
-      const axM = { type: 'category', data: Dt.lab, axisTick: { show: false }, axisLine: { show: false }, inverse: hep,
-        axisLabel: { color: CH.muted, fontSize: 11, formatter: (v, i) => Dt.selF[i] ? `{b|${v}}` : v, rich: { b: { fontWeight: 800, color: CH.ink } } } };
+      const axM = { type: 'category', data: labs, axisTick: { show: false }, axisLine: { show: false }, inverse: hep,
+        axisLabel: { color: CH.muted, fontSize: 11, interval: 0, formatter: (v, i) => i === labs.length - 1 ? `{n|${v}}` : selC[i] ? `{b|${v}}` : v,
+          rich: { b: { fontWeight: 800, color: CH.ink }, n: { fontWeight: 800, color: KH_MAU.datTx, fontSize: 11 } } } };
       const axT = { type: 'category', data: tc.map(c => c.name), inverse: !hep, axisTick: { show: false }, axisLine: { show: false },
         position: hep ? 'top' : undefined,
         axisLabel: hep ? { color: CH.ink2, fontSize: 9, fontWeight: 700, interval: 0, width: 58, overflow: 'break', lineHeight: 11 }
           : { color: CH.ink2, fontSize: 11, fontWeight: 700 } };
       return ecBase({ toolbox: { show: false }, grid: { left: 6, right: 8, top: hep ? 66 : 34, bottom: 4, containLabel: true },
       tooltip: { trigger: 'item', confine: true, backgroundColor: 'rgba(23,66,100,.95)', borderWidth: 0, textStyle: { color: '#fff', fontSize: 12 },
-        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${Dt.lab[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || 'Chưa đo')}</b><br>KPI: <b style="color:#FFE08A">${esc(q.value[4] || '—')}</b>${q.value[2] ? `<br>Kết quả: <b>${q.value[2] === 2 ? 'ĐẠT' : 'KHÔNG ĐẠT'}</b>` : ''}` },
+        formatter: q => `<b style="color:#A6E0F8">${esc(tc[yy(q)].name)} · ${labs[xx(q)]}</b><br>Thực đạt: <b>${esc(q.value[3] || 'Chưa đo')}</b><br>KPI: <b style="color:#FFE08A">${esc(q.value[4] || '—')}</b>${q.value[5] ? `<br>% đạt so với KPI: <b>${esc(q.value[5])}</b>` : ''}${q.value[2] ? `<br>Kết quả: <b>${q.value[2] === 2 ? 'ĐẠT' : 'KHÔNG ĐẠT'}</b>` : ''}` },
       xAxis: hep ? axT : axM, yAxis: hep ? axM : axT,
       visualMap: { type: 'piecewise', dimension: 2, orient: 'horizontal', top: 0, left: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 11, color: CH.ink2 },
-        pieces: [{ value: 2, label: 'Đạt', color: CH.st.good }, { value: 1, label: 'Không đạt', color: CH.st.bad }, { value: 0, label: 'Chưa đo', color: '#DCEEFB' }] },
-      series: [{ type: 'heatmap', name: 'Chất lượng', data: (hep ? hm.map(d => [d[1], d[0], d[2], d[3], d[4]]) : hm)
-          .map(d => d[2] === 0 ? { value: d, itemStyle: { borderColor: '#fff', color: '#DCEEFB' } } : d), itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 6 },
+        pieces: [{ value: 2, label: 'Đạt', color: KH_MAU.dat }, { value: 1, label: 'Không đạt', color: KH_MAU.khong }, { value: 0, label: 'Chưa đo', color: KH_MAU.chua }] },
+      series: [{ type: 'heatmap', name: 'Chất lượng', data: (hep ? hm.map(d => [d[1], d[0], d[2], d[3], d[4], d[5]]) : hm)
+          .map(d => d[2] === 0 ? { value: d, itemStyle: { borderColor: '#fff', color: KH_MAU.chua } } : d), itemStyle: { borderColor: '#fff', borderWidth: hep ? 2 : 3, borderRadius: 6 },
         /* ô có số: dòng trên = THỰC ĐẠT (trắng, to) · dòng dưới = KPI (nhãn trắng, chữ đậm màu theo kết quả) */
         label: { show: true, align: 'center', verticalAlign: 'middle',
-          formatter: q => { const st = q.value[2], a = q.value[3], k = q.value[4];
+          formatter: q => { const st = q.value[2], a = q.value[3], k = q.value[4], p = q.value[5];
             if (!st || !a) return '{n|Chưa đo}';
-            return k ? `{a|${a}}\n{${st === 2 ? 'kg' : 'kb'}|${hep ? '' : 'KPI '}${k}}` : `{a|${a}}`; },
+            return (k ? `{a|${a}}\n{${st === 2 ? 'kg' : 'kb'}|${hep ? '' : 'KPI '}${k}}` : `{a|${a}}`) + (p ? `\n{p|${hep ? '' : 'đạt '}${p}}` : ''); },
           rich: { a: { color: '#fff', fontSize: hep ? 11 : 13.5, fontWeight: 800, lineHeight: hep ? 15 : 20, align: 'center' },
-            kg: { color: '#0B6B3F', backgroundColor: 'rgba(255,255,255,.94)', borderRadius: 9, padding: hep ? [1, 4] : [2, 7], fontSize: hep ? 8.5 : 10, fontWeight: 800, lineHeight: hep ? 12 : 14, align: 'center' },
-            kb: { color: '#A32020', backgroundColor: 'rgba(255,255,255,.94)', borderRadius: 9, padding: hep ? [1, 4] : [2, 7], fontSize: hep ? 8.5 : 10, fontWeight: 800, lineHeight: hep ? 12 : 14, align: 'center' },
-            n: { color: '#2F6F9F', fontSize: hep ? 9.5 : 11, fontWeight: 700, align: 'center' } } } }]
-    }); }, hep ? 80 + Dt.lab.length * 42 : 44 + tc.length * 56, '', 'Chất lượng 5 tiêu chí theo tháng'),
-    table: chTable(['Tiêu chí', ...Dt.lab], tc.map((c, yi) => [esc(c.name), ...Dt.lab.map((l, xi) => { const h = hm.find(z => z[0] === xi && z[1] === yi);
-      return h && h[3] ? `<b style="color:${h[2] === 2 ? '#13794A' : '#B42318'}">${esc(h[3])}</b>${h[4] ? ` <span style="color:#7A8794">/ KPI ${esc(h[4])}</span>` : ''} <span class="badge ${h[2] === 2 ? 'good' : 'bad'}" style="font-size:9px">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>`
-        : '<span style="display:inline-block;padding:1px 8px;border-radius:9px;background:#DCEEFB;color:#2F6F9F;font-weight:600">Chưa đo</span>'; })])) });
+            kg: { color: KH_MAU.datTx, backgroundColor: 'rgba(255,255,255,.95)', borderRadius: 9, padding: hep ? [1, 4] : [2, 7], fontSize: hep ? 8.5 : 10, fontWeight: 800, lineHeight: hep ? 12 : 14, align: 'center' },
+            kb: { color: KH_MAU.khongTx, backgroundColor: 'rgba(255,255,255,.95)', borderRadius: 9, padding: hep ? [1, 4] : [2, 7], fontSize: hep ? 8.5 : 10, fontWeight: 800, lineHeight: hep ? 12 : 14, align: 'center' },
+            p: { color: 'rgba(255,255,255,.92)', fontSize: hep ? 8 : 9.5, fontWeight: 700, lineHeight: hep ? 12 : 15, align: 'center' },
+            n: { color: KH_MAU.chuaTx, fontSize: hep ? 9.5 : 11, fontWeight: 700, align: 'center' } } } }]
+    }); }, hep ? 80 + labs.length * 54 : 44 + tc.length * 72, '', 'Chất lượng 5 tiêu chí theo tháng'),
+    table: chTable(['Tiêu chí', ...labs], tc.map((c, yi) => [esc(c.name), ...labs.map((l, xi) => { const h = hm.find(z => z[0] === xi && z[1] === yi);
+      return h && h[3] ? `<b style="color:${h[2] === 2 ? KH_MAU.datTx : KH_MAU.khongTx}">${esc(h[3])}</b>${h[4] ? ` <span style="color:#7A8794">/ KPI ${esc(h[4])}</span>` : ''}${h[5] ? ` <span style="color:${h[2] === 2 ? KH_MAU.datTx : KH_MAU.khongTx};font-weight:700">· ${esc(h[5])}</span>` : ''} <span style="display:inline-block;padding:0 6px;border-radius:8px;font-size:9px;font-weight:800;color:#fff;background:${h[2] === 2 ? KH_MAU.dat : KH_MAU.khong}">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>`
+        : `<span style="display:inline-block;padding:1px 8px;border-radius:9px;background:${KH_MAU.chua};color:${KH_MAU.chuaTx};font-weight:600">Chưa đo</span>`; })])) });
   /* 2) Vượt Trội: top 10 điểm lũy kế */
   let vtCard = '';
   if (typeof VT !== 'undefined' && VT && VT.nguoi && VT.nguoi.length) {
@@ -8855,6 +8927,22 @@ body.khnav-mo .khn-bd{display:block}
 .khsecttl{padding:4px 2px 0;flex-wrap:wrap}.khsecttl span{font-size:11px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0}
 .khg2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp)}
 .khg1{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp)}
+.khyr-wrap{display:flex;gap:10px;align-items:stretch}.khyr-wrap>.ecbox{flex:1 1 auto;min-width:0}
+.khyr{flex:0 0 166px;display:flex;flex-direction:column;justify-content:space-between;border-left:2px solid #D6E4F0;padding:0 0 4px 10px;font-variant-numeric:tabular-nums}
+.khyr-top{background:linear-gradient(180deg,#F3F8FD,#E9F2FB);border:1px solid #D6E4F0;border-radius:12px;padding:10px 10px 9px;text-align:center}
+.khyr-h{font-size:11px;font-weight:800;letter-spacing:.08em;color:#16508F;margin-bottom:6px}
+.khyr-l{font-size:10.5px;color:#5B6B7B;font-weight:600}.khyr-v{font-size:16px;font-weight:800;color:#0F2A44;line-height:1.25}
+.khyr-s{font-size:10.5px;color:#334A5E;font-weight:700;margin-top:1px}
+.khyr-kq{margin-top:7px;display:inline-block;padding:3px 12px;border-radius:99px;font-size:11px;font-weight:800;letter-spacing:.04em;color:#fff}
+.khyr-kq.dat{background:#1F5FAD;box-shadow:0 2px 8px rgba(31,95,173,.28)}.khyr-kq.khong{background:#D1453B;box-shadow:0 2px 8px rgba(209,69,59,.28)}
+.khyr-g{margin-top:7px;font-size:9.5px;line-height:1.35;color:#6B7C8C}
+.khyr-rows{display:flex;flex-direction:column;gap:0}
+.khyr-r{position:relative;height:var(--rh,25px);display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 8px;border:1px solid #fff;border-radius:5px;overflow:hidden;font-size:10px}
+.khyr-r span{color:#5B6B7B;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.khyr-r b{font-size:11px;font-weight:800;position:relative}
+.khyr-r.thuc{background:#F2F6FA}.khyr-r.thuc b{color:#173B5F}.khyr-r.kpi{background:#FFF4E5}.khyr-r.kpi b{color:#B45309}
+.khyr-r.pct{background:#E4EFFA}.khyr-r.pct b{color:#16508F}.khyr-r.pct i{position:absolute;left:0;bottom:0;height:3px;background:#1F5FAD;border-radius:0 3px 3px 0}
+@media (max-width:899px){.khyr-wrap{flex-direction:column}.khyr{flex:none;border-left:0;border-top:2px solid #D6E4F0;padding:8px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .khyr-top{grid-row:span 1}.khyr-rows{justify-content:center}}
 @media (max-width:1100px){.khg2{grid-template-columns:minmax(0,1fr)}}
 .khnvgrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:var(--sp);align-items:start}
 
