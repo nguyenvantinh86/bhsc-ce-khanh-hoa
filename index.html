@@ -7724,7 +7724,12 @@ const EC_FONT = 'Inter, Roboto, -apple-system, "Segoe UI", Arial, sans-serif';
    Xanh da trời / cam < 3:1 so với nền trắng -> mọi biểu đồ luôn có nhãn số + nút “Bảng số”.
    Màu 4 (hồng tím) chỉ dùng cho bánh vòng — có khe hở + chú thích kèm số nên đạt điều kiện ΔE 7,5. Màu 5 = xám xanh (“nhóm khác”). */
 Object.assign(CH, { s1: '#2E9FD6', s2: '#E8862F', s3: '#2A5A9E', s4: '#C4508A', s5: '#A9BCCB', navy: '#1E5580' });
-CH.st.good = '#22A06B';   /* xanh lá trạng thái ĐẠT dịu hơn cho hợp nền xanh da trời (vẫn giữ nghĩa ĐẠT) */
+/* 20/11/2026 anh Thu: KHÔNG dùng xanh lá trên toàn web — ĐẠT = xanh dương đậm, KHÔNG ĐẠT = đỏ */
+CH.st.good = '#1F5FAD'; CH.st.bad = '#D1453B';
+if (typeof PPT !== 'undefined') Object.assign(PPT, { GOOD: '1F5FAD', GOODT: '16508F', BAD: 'D1453B' });
+/* 20/11/2026 anh Thu: bỏ phần CHẤT LƯỢNG BÊN NGOÀI (gói 1 đổi 1 / BHMR) — tab Chất lượng chỉ còn chất lượng bên trong (bảo hành tại nhà) */
+try { window.clPhuOn = () => false; window.clPhuToggle = () => ''; } catch (_) { }
+function khMauExcel() { try { if (typeof DK !== 'undefined' && DK.good !== '1F5FAD') Object.assign(DK, { good: '1F5FAD', goodT: '16508F', bad: 'D1453B' }); } catch (_) { } }
 const EC_C = [CH.s1, CH.s2, CH.s3];
 /* cột / thanh: tô chuyển sắc nhẹ cùng 1 màu (đậm ở gốc, sáng ở đầu) — kiểu dashboard hiện đại */
 const ecMix = (hex, t) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
@@ -8416,9 +8421,10 @@ function khBangPlan(Dt, ser, chieu, cellFmt) {
     const r = coA && coT ? (dk ? x.dk : x.a) / x.t : null;
     const stw = x.k && x.k.status;
     const st = r == null ? 4 : stw === 'good' ? 2 : stw === 'bad' ? 3 : (nguoc ? (r <= 1 ? 2 : 3) : (r >= 1 ? 2 : 3));
-    const pct = r == null ? '—' : (hep ? fx(r * 100, 0) : pc1(r))   /* ô hẹp: bỏ ký hiệu % (dòng đã ghi “% đạt”) */ + (dk || (chay[i] && nguoc) ? '*' : '');
-    data.push({ value: [i, 0, coA ? 0 : 4, coA ? cellFmt(x.a) : '—'], label: { color: coA ? KH_MAU.thucTx : KH_MAU.chuaTx } });
-    data.push({ value: [i, 1, coT ? 1 : 4, coT ? cellFmt(x.t) : '—'], label: { color: coT ? KH_MAU.kpiTx : KH_MAU.chuaTx } });
+    const CD = hep ? 'Chưa\nđo' : 'Chưa đo';   /* 20/11/2026 anh Thu: tháng chưa có số ghi "Chưa đo" */
+    const pct = r == null ? CD : (hep ? fx(r * 100, 0) : pc1(r))   /* ô hẹp: bỏ ký hiệu % (dòng đã ghi “% đạt”) */ + (dk || (chay[i] && nguoc) ? '*' : '');
+    data.push({ value: [i, 0, coA ? 0 : 4, coA ? cellFmt(x.a) : CD], label: { color: coA ? KH_MAU.thucTx : KH_MAU.chuaTx } });
+    data.push({ value: [i, 1, coT ? 1 : 4, coT ? cellFmt(x.t) : CD], label: { color: coT ? KH_MAU.kpiTx : KH_MAU.chuaTx } });
     data.push({ value: [i, 2, st, pct], label: { color: st === 4 ? KH_MAU.chuaTx : '#fff' } }); });
   return { dong, data };
 }
@@ -8442,9 +8448,9 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt) {
         let i = Dt.lab.indexOf(p0.axisValue); if (i < 0) i = p0.dataIndex; const x = ser[i] || {};
         const r = x.t ? (x.dk != null ? x.dk : x.a) / x.t : null;
         return `<div style="font-weight:800;color:#A6E0F8;margin-bottom:3px">${Dt.lab[i]}</div>
-          <div>${esc(nameA)}: <b>${esc(x.a == null ? '–' : fmt(x.a))}</b></div>
+          <div>${esc(nameA)}: <b>${esc(x.a == null ? 'Chưa đo' : fmt(x.a))}</b></div>
           ${x.dk != null && x.a != null && x.dk > x.a ? `<div>Dự kiến cuối tháng: <b>${esc(fmt(x.dk))}</b></div>` : ''}
-          <div>${esc(nameT)}: <b>${esc(x.t == null ? '–' : fmt(x.t))}</b></div>
+          <div>${esc(nameT)}: <b>${esc(x.t == null ? 'Chưa đo' : fmt(x.t))}</b></div>
           ${r != null ? `<div>Tỷ lệ${x.dk != null && x.dk > x.a ? ' dự kiến' : ''}: <b>${pc1(r)}</b></div>` : ''}`; } }),
     xAxis: [ecXCat(Dt.lab, Dt.selF), { type: 'category', gridIndex: 1, data: Dt.lab, show: false }],
     yAxis: [ecYVal(axisFmt, laDuong ? { scale: true } : {}),
@@ -8465,14 +8471,15 @@ function khOptPlan(Dt, ser, fmt, axisFmt, nameA, nameT, chieu, cellFmt) {
         labelLayout: { moveOverlap: 'shiftY' } },
       { type: 'heatmap', name: '_bang', xAxisIndex: 1, yAxisIndex: 1, data: B.data, z: 3,
         itemStyle: { borderColor: '#fff', borderWidth: hep ? 1.5 : 2, borderRadius: 4 }, emphasis: { disabled: true },
-        label: { show: true, formatter: q => q.value[3], fontSize: hep ? 7.5 : KH_BANG.gon(ser.length) ? 9 : 10.5, fontWeight: 800 } }
+        label: { show: true, formatter: q => q.value[3], fontSize: hep ? 7.5 : KH_BANG.gon(ser.length) ? 9 : 10.5, lineHeight: hep ? 8 : undefined, fontWeight: 800 } }
     ]
   });
 }
 function khTQPlanCard(Dt, key, title, icon, fmt, axisFmt, nameA, nameT, note, chieu, cellFmt) {
   const ser = Dt[key];
   const rows = Dt.lab.map((l, i) => { const x = ser[i] || {}; const r = x.t ? (x.dk != null ? x.dk : x.a) / x.t : null;
-    return [`<b>${l}</b>`, x.a == null ? '–' : esc(fmt(x.a)), x.dk != null && x.a != null && x.dk > x.a ? esc(fmt(x.dk)) : '–', x.t == null ? '–' : esc(fmt(x.t)), r == null ? '–' : pc1(r)]; });
+    const CD = '<span style="color:#4C79A6;font-weight:600">Chưa đo</span>';
+    return [`<b>${l}</b>`, x.a == null ? CD : esc(fmt(x.a)), x.dk != null && x.a != null && x.dk > x.a ? esc(fmt(x.dk)) : '–', x.t == null ? CD : esc(fmt(x.t)), r == null ? CD : pc1(r)]; });
   { const K = khNamTong(Dt.S || ST, key), N = khDtNam(Dt), dkN = khDuKienNam(N, N[key], key);
     if (K && NB(K.actual) != null && NB(K.target)) rows.push([`<b>NĂM ${(Dt.S || ST).nam}</b>`, `<b>${esc(fmt(K.actual))}</b>`,
       key === 'dg' ? '–' : (dkN == null ? '–' : `<b>${esc(fmt(dkN))}</b> (dự kiến cả năm)`), `<b>${esc(fmt(K.target))}</b>`, `<b>${pc1(K.actual / K.target)}</b>`]); }
@@ -8502,12 +8509,8 @@ function khOptDonut(nhom, tong) {
     media: [{ query: { maxWidth: 520 }, option: { title: ttl('50%', '27%'), legend: lg('horizontal', { left: 'center', top: 'auto', bottom: 0, right: 'auto' }),
       series: [{ center: ['50%', '36%'], radius: ['42%', '62%'] }] } }] };
 }
-function khTQ(S) {
-  if (!M(S) && !isYear(S)) return '';
-  let Dt; try { Dt = khTQData(S); } catch (e) { console.warn('[khTQ]', e); return ''; }
-  if (!Dt.ms.length) return '';
-  Dt.S = S;
-  /* 1) bản đồ chất lượng: 5 tiêu chí × tháng */
+/* BẢNG 5 TIÊU CHÍ CHẤT LƯỢNG × THÁNG (+ cột NĂM) — dùng ở SHEET TỔNG QUAN và tab CHẤT LƯỢNG */
+function khCLHeat(Dt, S, title) {
   const tc = (Dt.cl.find(q => q && q.all && q.all.length) || { all: [] }).all.map(k => ({ key: k.key, name: k.name }));
   const hm = [], hep = window.innerWidth < 600;   /* màn hẹp (điện thoại): xoay bảng — tháng theo hàng dọc */
   /* cột cuối = NĂM (bình quân gia quyền cả năm theo đúng hàm "Cả năm" của web) */
@@ -8518,7 +8521,7 @@ function khTQ(S) {
   tc.forEach((c, yi) => cols.forEach((q, xi) => { const k = q && q.all ? q.all.find(z => z.key === c.key) : null;
     const st = k && k.actual != null ? (k.status === 'good' ? 2 : 1) : 0;
     hm.push([xi, yi, st, k && k.actual != null ? k.fmt(k.actual) : '', k && k.target != null ? k.fmt(k.target) : '', k && k.actual != null ? pcK(k) : '']); }));
-  const clCard = chartCard({ title: 'Chất lượng 5 tiêu chí theo tháng', icon: 'shield',
+  const clCard = chartCard({ title: title || 'Chất lượng 5 tiêu chí theo tháng', icon: 'shield',
     sub: `Mỗi ô: số lớn = THỰC ĐẠT · nhãn trắng = KPI · dòng dưới = % đạt so với KPI · xanh dương đậm = ĐẠT · đỏ = KHÔNG ĐẠT · xanh nhạt = CHƯA ĐO · cột cuối = bình quân NĂM ${S.nam} · ${scopeLbl(S)}`,
     svg: ecBox(() => { const xx = q => hep ? q.value[1] : q.value[0], yy = q => hep ? q.value[0] : q.value[1];
       const axM = { type: 'category', data: labs, axisTick: { show: false }, axisLine: { show: false }, inverse: hep,
@@ -8550,6 +8553,15 @@ function khTQ(S) {
     table: chTable(['Tiêu chí', ...labs], tc.map((c, yi) => [esc(c.name), ...labs.map((l, xi) => { const h = hm.find(z => z[0] === xi && z[1] === yi);
       return h && h[3] ? `<b style="color:${h[2] === 2 ? KH_MAU.datTx : KH_MAU.khongTx}">${esc(h[3])}</b>${h[4] ? ` <span style="color:#7A8794">/ KPI ${esc(h[4])}</span>` : ''}${h[5] ? ` <span style="color:${h[2] === 2 ? KH_MAU.datTx : KH_MAU.khongTx};font-weight:700">· ${esc(h[5])}</span>` : ''} <span style="display:inline-block;padding:0 6px;border-radius:8px;font-size:9px;font-weight:800;color:#fff;background:${h[2] === 2 ? KH_MAU.dat : KH_MAU.khong}">${h[2] === 2 ? 'ĐẠT' : 'KHÔNG'}</span>`
         : `<span style="display:inline-block;padding:1px 8px;border-radius:9px;background:${KH_MAU.chua};color:${KH_MAU.chuaTx};font-weight:600">Chưa đo</span>`; })])) });
+  return { tc, card: clCard };
+}
+function khTQ(S) {
+  if (!M(S) && !isYear(S)) return '';
+  let Dt; try { Dt = khTQData(S); } catch (e) { console.warn('[khTQ]', e); return ''; }
+  if (!Dt.ms.length) return '';
+  Dt.S = S;
+  /* 1) bản đồ chất lượng: 5 tiêu chí × tháng (hàm dùng chung khCLHeat) */
+  const H = khCLHeat(Dt, S), tc = H.tc, clCard = H.card;
   /* 2) Vượt Trội: top 10 điểm lũy kế */
   let vtCard = '';
   if (typeof VT !== 'undefined' && VT && VT.nguoi && VT.nguoi.length) {
@@ -8737,6 +8749,7 @@ window.addEventListener('scroll', () => { if (KH_SPYT) return; KH_SPYT = request
    GẮN VÀO VÒNG RENDER + SỰ KIỆN
    ============================================================================= */
 function khAfterRender() {
+  khMauExcel();
   khQuyenUI();
   ecMount();
   if (ST.tab === 0) khTQSpark();
@@ -9013,7 +9026,7 @@ body.khnav-mo .khn-bd{display:block}
 :root{--navy-900:#0F3049;--navy-800:#174264;--navy-700:#1E5580;--navy-600:#2A6C9C;--navy-500:#3A87BA;--navy-050:#EAF5FB;
   --accent:#F2994A;--accent-d:#DB7F2E;--plane:#EDF6FB;--sunken:#EEF4F8;--hair:#E3ECF2;--hair-2:#CFDDE7;
   --ink:#14212B;--ink-2:#3B4B58;--muted:#6B7C8A;--s1:#2E9FD6;--s2:#E8862F;--s3:#2A5A9E;--r-lg:18px;
-  --sky:#2E9FD6;--sky-l:#8FD3F2;--sky-d:#1E5580;--good:#22A06B;--good-bg:#E6F6EE;--good-tx:#13794A}
+  --sky:#2E9FD6;--sky-l:#8FD3F2;--sky-d:#1E5580;--good:#1F5FAD;--good-bg:#E3EDF9;--good-tx:#16508F}
 body{background:linear-gradient(180deg,#E3F2FB 0,#EDF6FB 420px,#F3F8FB 100%) fixed}
 ::selection{background:#BFE6F8;color:#0F3049}
 /* thanh đầu trang: trắng, chữ đậm */
@@ -9118,6 +9131,36 @@ table.vttbl th.lk,.vttot td.lk{background:#E8862F!important;color:#fff}
 .vttot td{background:#1E5580!important}
 .vtten,.vtk b,.vtdet .vtwho b,.vtgt,table.vttbl td.rk{color:#0F3049}
 table.dt tr.tot td,table.mini tr.sum td{background:#EAF6FC;color:#0F3049;border-top-color:#2E9FD6}
+/* ==== 20/11/2026 anh Thu: BẢNG MẪU (1/ BẢO HÀNH TẠI NHÀ · 1/ BÊN TRONG · 2/ BÊN NGOÀI ...) giữ bố cục cũ, giao diện chuyên nghiệp ====
+   tiêu đề nhóm nền navy chữ trắng · dòng tiêu đề con xanh nhạt + gạch xanh đậm · sọc dòng · dòng TỔNG nền xanh nhạt viền xanh đậm
+   · nhãn ĐẠT xanh dương đậm / KHÔNG ĐẠT đỏ (không dùng xanh lá) */
+table.dt{font-size:12.5px}
+table.dt th,table.dt td{padding:8px 10px;border-bottom:1px solid #E6EEF5}
+table.dt thead tr:first-child th{background:#1E5580;color:#fff;border-bottom:0;letter-spacing:.5px}
+table.dt thead tr:first-child th.g{background:linear-gradient(180deg,#24679A,#1E5580);color:#fff;border-left:2px solid #fff;font-size:11px;padding:9px 10px}
+table.dt thead tr:first-child th svg{color:#BFE3F7}
+table.dt thead tr:nth-child(2) th{background:#EAF2F9;color:#2A4A66;border-bottom:2px solid #1F5FAD;font-size:10.5px}
+table.dt thead tr:nth-child(2) th.sep{border-left:2px solid #C9DAEA}
+table.dt th.stick,table.dt th.stick2{background:#1E5580!important;color:#fff}
+table.dt tbody td{color:#24384A}
+table.dt tbody tr:nth-child(even) td{background:#F7FAFD}
+table.dt tbody tr:nth-child(even) .stick,table.dt tbody tr:nth-child(even) .stick2{background:#F7FAFD}
+table.dt tbody tr:hover td,table.dt tbody tr:hover .stick,table.dt tbody tr:hover .stick2{background:#EAF4FB}
+table.dt td.l b{color:#0F2A44}
+table.dt .sep{border-left:2px solid #DCE7F1}
+table.dt tr.tot td,table.dt tr.tot .stick,table.dt tr.tot .stick2{background:#E3EDF9!important;color:#0F2A44;font-weight:800;border-top:2px solid #1F5FAD;border-bottom:2px solid #1F5FAD}
+table.dt tr.tot:hover td{background:#D9E7F7!important}
+table.dt .badge{border-radius:99px;padding:2px 9px;font-size:10px;font-weight:800;letter-spacing:.3px;border:0}
+table.dt .badge.good{background:#1F5FAD;color:#fff}
+table.dt .badge.bad,table.dt .badge.warn{background:#D1453B;color:#fff}
+table.dt .badge.none{background:#EEF2F6;color:#6B7C8A}
+table.dt .badge svg{color:inherit}
+table.dt .dkc{background:#FFF4E5;color:#B45309;border:1px solid #F5D7AE;border-radius:99px;font-weight:700}
+table.dt .minibtn{border:1px solid #CFE0EE;background:#fff;color:#1E5580;border-radius:6px;font-weight:700;letter-spacing:.3px}
+table.dt .minibtn:hover{background:#1E5580;color:#fff;border-color:#1E5580}
+table.dt .rnow{color:#6B7C8A}
+.dpill.sg{background:#1F5FAD}.dpill.sb{background:#D1453B}
+table.dt .stick{width:104px;min-width:104px;max-width:104px}table.dt .stick2{left:104px}
 /* KPI vượt trội doanh thu 3 tháng cuối năm (tab DOANH THU) */
 #khQ4 .khq4seg{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 #khQ4 .khq4seg button{border:1px solid #CFE3EF;background:#fff;color:#1E5580;font:inherit;font-size:12px;font-weight:700;padding:6px 13px;border-radius:99px;cursor:pointer}
@@ -9129,15 +9172,15 @@ table.dt tr.tot td,table.mini tr.sum td{background:#EAF6FC;color:#0F3049;border-
 #khQ4 .q4t span{font-size:10.5px;font-weight:800;color:#5B6B78;text-transform:uppercase;letter-spacing:.3px}
 #khQ4 .q4t b{font-size:21px;font-weight:800;color:#0F3049;line-height:1.25}
 #khQ4 .q4t small{font-size:11px;color:#6B7C8A}
-#khQ4 .q4t.good b{color:#1A7F4B}#khQ4 .q4t.bad b{color:#C0392B}#khQ4 .q4t.run b{color:#1E7DB8}
+#khQ4 .q4t.good b{color:#16508F}#khQ4 .q4t.bad b{color:#C0392B}#khQ4 .q4t.run b{color:#1E7DB8}
 #khQ4 .q4i{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#E6F4FB;color:#1E7DB8;margin-right:7px;vertical-align:middle}
 table.khq4t td.q4p{min-width:92px}
 table.khq4t .q4r{font-weight:800;font-variant-numeric:tabular-nums}
-table.khq4t .q4r.good{color:#1A7F4B}table.khq4t .q4r.bad{color:#C0392B}table.khq4t .q4r.run{color:#1E7DB8}
+table.khq4t .q4r.good{color:#16508F}table.khq4t .q4r.bad{color:#C0392B}table.khq4t .q4r.run{color:#1E7DB8}
 table.khq4t td.q4p i{display:block;font-style:normal;font-size:9.5px;font-weight:700;color:var(--muted)}
 table.khq4t .q4m{display:block;height:4px;border-radius:4px;background:#E8EEF3;margin-top:4px;overflow:hidden}
 table.khq4t .q4m b{display:block;height:100%;border-radius:4px}
-table.khq4t .q4m b.good{background:#22A06B}table.khq4t .q4m b.bad{background:#E05A47}table.khq4t .q4m b.run{background:#2E9FD6}
+table.khq4t .q4m b.good{background:#1F5FAD}table.khq4t .q4m b.bad{background:#E05A47}table.khq4t .q4m b.run{background:#2E9FD6}
 @media (max-width:760px){#khQ4 .q4tiles{grid-template-columns:repeat(2,minmax(0,1fr))}#khQ4 .q4t b{font-size:18px}}
 `;
   const st = document.createElement('style'); st.id = 'khProCss'; st.textContent = css; document.head.appendChild(st);
@@ -9161,8 +9204,8 @@ document.addEventListener('DOMContentLoaded', () => { khNavInit(); khLockUI(); K
    Một bố cục (đơn vị inch, khổ 13,333 × 7,5) dùng chung cho xem trước HTML và file .pptx
    -> bản xem trước luôn giống file tải về.
    ============================================================================= */
-const KHP = { NAVY: '0B3D91', INK: '1F2A44', LINE: 'C9D3E6', CARD: 'DDEAF6', GOOD: '1E8449', BAD: 'C0392B',
-  WARN: 'B9770E', GOODF: 'E3F4E8', BADF: 'FDE2E1', NOTE: 'FFF7CC', NOTEL: 'FCD609', MUT: '5B6780', WH: 'FFFFFF',
+const KHP = { NAVY: '0B3D91', INK: '1F2A44', LINE: 'C9D3E6', CARD: 'DDEAF6', GOOD: '1F5FAD', BAD: 'C0392B',
+  WARN: 'B9770E', GOODF: 'E3EDF9', BADF: 'FDE2E1', NOTE: 'FFF7CC', NOTEL: 'FCD609', MUT: '5B6780', WH: 'FFFFFF',
   YEL: 'FFD500', ORG: 'E8862F', ALT: 'F5F8FC' };
 const KHP_W = 13.333, KHP_H = 7.5, KHP_M = 0.45, KHP_CW = 13.333 - 0.9;
 
